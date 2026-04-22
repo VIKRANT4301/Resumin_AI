@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --surface-0: #120e0b;
+  --surface-1: #17120f;
+  --surface-2: #201914;
+  --text-main: #f5efe7;
+  --text-muted: #b8aea4;
+  --accent-warm: #f5bd4e;
+  --accent-cool: #59d0de;
+  --accent-success: #4cc890;
+  --font-body: "Aptos", "Segoe UI Variable", "Trebuchet MS", sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(245, 189, 78, 0.07), transparent 24%),
+    linear-gradient(180deg, #120e0b 0%, #16110d 100%);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(245, 189, 78, 0.22);
+  color: #fff9f2;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.45s ease-out;
+}
+
+textarea,
+input,
+button {
+  font: inherit;
+}
