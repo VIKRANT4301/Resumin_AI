@@ -142,6 +142,51 @@ def _ensure_match_runs_schema(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE match_runs ADD COLUMN {column_name} {column_type}")
 
 
+def _ensure_recruiter_actions_schema(conn: sqlite3.Connection) -> None:
+    columns = _get_table_columns(conn, "recruiter_actions")
+    if not columns:
+        return
+
+    expected_columns = {
+        "action_key": "TEXT",
+        "recruiter_email": "TEXT",
+        "candidate_key": "TEXT",
+        "candidate_email": "TEXT",
+        "job_key": "TEXT",
+        "action": "TEXT",
+        "reason": "TEXT",
+        "email_status": "TEXT",
+        "payload_json": "TEXT",
+        "created_at": "TEXT",
+        "updated_at": "TEXT",
+    }
+
+    for column_name, column_type in expected_columns.items():
+        if column_name not in columns:
+            conn.execute(f"ALTER TABLE recruiter_actions ADD COLUMN {column_name} {column_type}")
+
+
+def _ensure_email_events_schema(conn: sqlite3.Connection) -> None:
+    columns = _get_table_columns(conn, "email_events")
+    if not columns:
+        return
+
+    expected_columns = {
+        "event_key": "TEXT",
+        "recipient_email": "TEXT",
+        "event_type": "TEXT",
+        "subject": "TEXT",
+        "body": "TEXT",
+        "status": "TEXT",
+        "payload_json": "TEXT",
+        "created_at": "TEXT",
+    }
+
+    for column_name, column_type in expected_columns.items():
+        if column_name not in columns:
+            conn.execute(f"ALTER TABLE email_events ADD COLUMN {column_name} {column_type}")
+
+
 def _ensure_profiles_schema(conn: sqlite3.Connection) -> None:
     columns = _get_table_columns(conn, "profiles")
     if not columns:
@@ -319,11 +364,46 @@ def init_store() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS recruiter_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action_key TEXT NOT NULL UNIQUE,
+                recruiter_email TEXT NOT NULL,
+                candidate_key TEXT,
+                candidate_email TEXT,
+                job_key TEXT,
+                action TEXT NOT NULL,
+                reason TEXT,
+                email_status TEXT,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS email_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                recipient_email TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                status TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         _ensure_candidates_schema(conn)
         _ensure_jobs_schema(conn)
         _ensure_recruiter_jobs_schema(conn)
         _ensure_job_applications_schema(conn)
         _ensure_match_runs_schema(conn)
+        _ensure_recruiter_actions_schema(conn)
+        _ensure_email_events_schema(conn)
         _ensure_profiles_schema(conn)
         conn.commit()
 
@@ -510,6 +590,110 @@ def save_match_run(candidate: dict, job: dict, match: dict, feedback: dict) -> N
             ),
         )
         conn.commit()
+
+
+def save_recruiter_action(action_payload: dict) -> dict:
+    init_store()
+
+    recruiter_email = _normalize(action_payload.get("recruiter_email")).lower()
+    candidate_key = _normalize(action_payload.get("candidate_key"))
+    candidate_email = _normalize(action_payload.get("candidate_email")).lower()
+    job_key = _normalize(action_payload.get("job_key"))
+    action = _normalize(action_payload.get("action")).lower()
+    reason = _normalize(action_payload.get("reason"))
+
+    if not recruiter_email or not action:
+        raise ValueError("Recruiter email and action are required")
+
+    now = _utc_now()
+    action_key_source = "::".join([recruiter_email, candidate_key or candidate_email, job_key, action])
+    action_key = f"action:{hashlib.sha1(action_key_source.encode('utf-8')).hexdigest()[:16]}"
+    payload_json = json.dumps(action_payload, ensure_ascii=True)
+
+    with _connect() as conn:
+        existing = conn.execute(
+            "SELECT created_at FROM recruiter_actions WHERE action_key = ?",
+            (action_key,),
+        ).fetchone()
+        created_at = existing["created_at"] if existing else now
+        conn.execute(
+            """
+            INSERT INTO recruiter_actions (
+                action_key, recruiter_email, candidate_key, candidate_email, job_key, action, reason, email_status, payload_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(action_key) DO UPDATE SET
+                candidate_key = excluded.candidate_key,
+                candidate_email = excluded.candidate_email,
+                job_key = excluded.job_key,
+                action = excluded.action,
+                reason = excluded.reason,
+                email_status = excluded.email_status,
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                action_key,
+                recruiter_email,
+                candidate_key,
+                candidate_email,
+                job_key,
+                action,
+                reason,
+                _normalize(action_payload.get("email_status")),
+                payload_json,
+                created_at,
+                now,
+            ),
+        )
+        conn.commit()
+
+    saved = dict(action_payload)
+    saved["action_key"] = action_key
+    saved["_created_at"] = created_at
+    saved["_updated_at"] = now
+    return saved
+
+
+def save_email_event(event_payload: dict) -> dict:
+    init_store()
+
+    recipient_email = _normalize(event_payload.get("recipient_email")).lower()
+    event_type = _normalize(event_payload.get("event_type")).lower() or "notification"
+    subject = _normalize(event_payload.get("subject"))
+    body = _normalize(event_payload.get("body"))
+    if not recipient_email or not subject or not body:
+        raise ValueError("Recipient email, subject, and body are required")
+
+    created_at = _utc_now()
+    event_key_source = "::".join([recipient_email, event_type, subject, created_at])
+    event_key = f"email:{hashlib.sha1(event_key_source.encode('utf-8')).hexdigest()[:16]}"
+
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO email_events (
+                event_key, recipient_email, event_type, subject, body, status, payload_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event_key,
+                recipient_email,
+                event_type,
+                subject,
+                body,
+                _normalize(event_payload.get("status")) or "logged",
+                json.dumps(event_payload, ensure_ascii=True),
+                created_at,
+            ),
+        )
+        conn.commit()
+
+    saved = dict(event_payload)
+    saved["event_key"] = event_key
+    saved["_created_at"] = created_at
+    return saved
 
 
 def delete_match_runs_for_candidate(candidate_key: str) -> None:

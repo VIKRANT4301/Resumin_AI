@@ -27,8 +27,14 @@ python -c "from services.vector_db import VectorDBManager; print('✓ Vector DB 
 python -c "from services.skill_graph import SkillGraph; print('✓ Skill Graph ready')"
 python -c "from services.rag_matcher import RAGMatcher; print('✓ RAG Matcher ready')"
 
-# Start backend server
-uvicorn app:app --reload --port 8000
+# Start backend server (manual)
+python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000
+```
+
+From the repo root on Windows, you can also run:
+
+```powershell
+./run_backend.ps1
 ```
 
 You should see:
@@ -155,10 +161,16 @@ Expected response:
 lsof -i :8000
 
 # If occupied, use different port
-uvicorn app:app --port 8001
+python -m uvicorn app:app --host 127.0.0.1 --port 8001
 
 # Verify Gemini API key
 echo $GEMINI_API_KEY
+```
+
+If Windows blocks `uvicorn.exe`, use:
+
+```powershell
+./run_backend.ps1
 ```
 
 ### Frontend won't load

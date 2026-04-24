@@ -835,6 +835,7 @@ function RecruiterDashboard({ api, onAuthError }) {
   const [decisions, setDecisions] = useState({});
   const [meta, setMeta] = useState(null);
   const [filters, setFilters] = useState({ scoreMin: 0, skill: "", risk: "all" });
+  const [actionMessage, setActionMessage] = useState("");
 
   const candidateKey = (item) => item.email || item.name || String(item.rank || "");
   const buildActionStatePayload = () =>
@@ -888,6 +889,7 @@ function RecruiterDashboard({ api, onAuthError }) {
         total: response.data.summary?.total_candidates || results.length,
         shortlisted: response.data.summary?.shortlisted_count || 0,
         rejected: response.data.summary?.rejected_count || 0,
+        reliability: response.data.summary?.reliability || null,
       });
       setActiveTab("rank");
     } catch (err) {
@@ -932,6 +934,22 @@ function RecruiterDashboard({ api, onAuthError }) {
           platforms: (prep?.resources || []).slice(0, 4).map((resource) => resource.title),
         };
       });
+      const skillBreakdown = item.skill_breakdown || {};
+      const confidence = item.confidence || { percent: 0, label: "Low", drivers: [] };
+      const gapHeatmap = item.gap_heatmap || [];
+      const reliability = item.summary?.reliability_metrics || {};
+      const improvementCards = rankedMissing.slice(0, 4).map((gap, index) => ({
+        skill: gap.skill,
+        action: gap.action || `Build one role-relevant proof point for ${gap.skill}.`,
+        impact: Math.max(4, 14 - (index * 2)),
+        difficulty: index === 0 ? "Medium" : index >= 2 ? "Low" : "Medium",
+        reasoning: gap.why_it_matters || gap.reason || `Closing ${gap.skill} improves recruiter confidence.`,
+      }));
+      const prepResources = item.feedback?.preparation_resources || item.feedback?.preparation_plan || [];
+      const interviewPrep = item.feedback?.interview_question_module || {};
+      const exactSkills = (skillBreakdown.exact_matches || []).map((entry) => entry.skill);
+      const semanticSkills = (skillBreakdown.semantic_matches || []).map((entry) => entry.skill);
+      const inferredSkills = (skillBreakdown.inferred_skills || []).map((entry) => entry.skill);
 
       return {
         ...item,
@@ -939,6 +957,10 @@ function RecruiterDashboard({ api, onAuthError }) {
         candidate: item.name || item.candidate || "Unknown Candidate",
         score: item.match_score || item.score || 0,
         role: meta?.role || item.job_role || "Target Role",
+        confidence,
+        dealBreakerFlag: Boolean(item.deal_breaker_flag),
+        dealBreakers: item.deal_breakers || [],
+        anomalyAlert: item.anomaly_alert || "",
         keyHighlights,
         fitBullets: whyFits.slice(0, 5),
         criticalGaps: critical.length ? critical.slice(0, 4) : (item.gaps || []).slice(0, 4),
@@ -947,6 +969,20 @@ function RecruiterDashboard({ api, onAuthError }) {
         trainingModule,
         riskLevel: risk.value,
         breakdown: item.scoring_breakdown || {},
+        skillBreakdown,
+        exactSkills,
+        semanticSkills,
+        inferredSkills,
+        gapHeatmap,
+        skillGraph: item.skill_graph || {},
+        experienceTimeline: item.experience_timeline || [],
+        rankingExplanation: item.ranking_explanation || {},
+        strengthSignals: item.feedback?.strength_signals || [],
+        preparationResources: prepResources,
+        interviewPrep,
+        improvementCards,
+        experienceSnapshot: item.experience_snapshot || {},
+        reliability,
         shortlisted: (decisions[candidateKey(item)] || item.status) === "shortlisted",
         rejected: (decisions[candidateKey(item)] || item.status) === "rejected",
       };
@@ -970,18 +1006,61 @@ function RecruiterDashboard({ api, onAuthError }) {
     });
   }, [rankingCards, filters]);
 
-  const handleShortlist = (candidateId) => {
+  const handleShortlist = async (candidateId) => {
+    const target = rankingCards.find((item) => item.id === candidateId);
+    const wasShortlisted = Boolean(target?.shortlisted);
     setDecisions((current) => ({
       ...current,
       [candidateId]: current[candidateId] === "shortlisted" ? "" : "shortlisted",
     }));
+    setMeta((current) => current ? ({ ...current, shortlisted: Math.max(0, (current.shortlisted || 0) + (wasShortlisted ? -1 : 1)) }) : current);
+    if (!target || wasShortlisted) {
+      setActionMessage("Shortlist removed.");
+      return;
+    }
+    try {
+      const response = await api.post("/recruiter/actions", {
+        action: "shortlisted",
+        candidate_key: target.resume?._candidate_key || "",
+        candidate_email: target.email || "",
+        candidate_name: target.candidate,
+        role_name: target.role,
+        strengths: target.fitBullets || [],
+        next_step: target.next_step || "We will contact you with interview details.",
+        reason: "Recruiter shortlisted from ranking workspace",
+      });
+      setActionMessage(response.data?.message ? `✅ ${response.data.message}` : "✅ Candidate shortlisted");
+    } catch (err) {
+      setActionMessage(err.response?.data?.message || "Unable to record shortlist action.");
+    }
   };
 
-  const handleReject = (candidateId) => {
+  const handleReject = async (candidateId) => {
+    const target = rankingCards.find((item) => item.id === candidateId);
+    const wasRejected = Boolean(target?.rejected);
     setDecisions((current) => ({
       ...current,
       [candidateId]: current[candidateId] === "rejected" ? "" : "rejected",
     }));
+    setMeta((current) => current ? ({ ...current, rejected: Math.max(0, (current.rejected || 0) + (wasRejected ? -1 : 1)) }) : current);
+    if (!target || wasRejected) {
+      setActionMessage("Rejection removed.");
+      return;
+    }
+    try {
+      const response = await api.post("/recruiter/actions", {
+        action: "rejected",
+        candidate_key: target.resume?._candidate_key || "",
+        candidate_email: target.email || "",
+        candidate_name: target.candidate,
+        role_name: target.role,
+        strengths: target.fitBullets || [],
+        reason: target.dealBreakers?.[0]?.reason || target.criticalGaps?.[0] || "Recruiter rejected from ranking workspace",
+      });
+      setActionMessage(response.data?.message ? `👍 ${response.data.message}` : "👍 Recruiter feedback captured");
+    } catch (err) {
+      setActionMessage(err.response?.data?.message || "Unable to record reject action.");
+    }
   };
 
   return (
@@ -1027,6 +1106,26 @@ function RecruiterDashboard({ api, onAuthError }) {
                   <p className="mt-4 text-xl font-black text-white">{meta?.role || selectedJobPost?.title || "Waiting"}</p>
                 </div>
               </div>
+              {meta?.reliability ? (
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  <div className="rounded-[1.4rem] border border-cyan-300/16 bg-[linear-gradient(135deg,rgba(103,232,249,0.12),rgba(255,255,255,0.03))] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">Reliability</p>
+                    <p className="mt-2 text-3xl font-black text-white">{Math.round(meta.reliability.overall_reliability || 0)}%</p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">Precision@K</p>
+                    <p className="mt-2 text-2xl font-black text-white">{Math.round(meta.reliability.precision_at_k || 0)}%</p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">NDCG</p>
+                    <p className="mt-2 text-2xl font-black text-white">{Math.round(meta.reliability.ndcg || 0)}%</p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">Exp. Confidence</p>
+                    <p className="mt-2 text-2xl font-black text-white">{Math.round(meta.reliability.experience_confidence || 0)}%</p>
+                  </div>
+                </div>
+              ) : null}
               {selectedJobPost ? (
                 <div className="mt-5 rounded-[1.5rem] border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(103,232,249,0.12),rgba(255,255,255,0.03))] p-4 text-sm leading-6 text-cyan-50">
                   Using saved job post: <span className="font-black">{selectedJobPost.title}</span>
@@ -1147,6 +1246,7 @@ function RecruiterDashboard({ api, onAuthError }) {
       {activeTab === "rank" ? (
         <>
           {error ? <div className="rounded-[1.4rem] border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div> : null}
+          {actionMessage ? <div className="rounded-[1.4rem] border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-50">{actionMessage}</div> : null}
           {loading ? <LoadingPanel label="Ranking candidates with weighted recruiter scoring" /> : null}
 
           {!loading && ranking.length > 0 ? (

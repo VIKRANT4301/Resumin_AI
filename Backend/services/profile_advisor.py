@@ -1,22 +1,7 @@
 import json
-import os
 
-import google.generativeai as genai
-from dotenv import load_dotenv
-
+from services.ai_runtime import get_generative_model
 from utils.cleaner import clean_json
-
-
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
-
-API_KEY = os.getenv("GEMINI_API_KEY")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-
-MODEL = genai.GenerativeModel(
-    "gemini-2.5-flash-lite",
-    generation_config={"response_mime_type": "application/json"},
-)
 
 PROMPT = """
 You are an AI career strategist.
@@ -77,7 +62,10 @@ PROFILE:
 RESUME:
 {json.dumps(resume, ensure_ascii=True)[:7000]}
 """
-        response = MODEL.generate_content(prompt, generation_config={"temperature": 0.2})
+        response = get_generative_model("gemini-2.5-flash-lite", "application/json").generate_content(
+            prompt,
+            generation_config={"temperature": 0.2},
+        )
         parsed = json.loads(clean_json(response.text))
 
         def _list_value(key: str, default: list[str]) -> list[str]:

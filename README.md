@@ -45,8 +45,13 @@ echo "GEMINI_API_KEY=your_api_key_here" > Backend/.env
 
 ### 3. Start Backend
 ```bash
+./run_backend.ps1
+```
+
+Manual fallback:
+```bash
 cd Backend
-uvicorn app:app --reload --port 8000
+python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### 4. Start Frontend (new terminal)
@@ -287,6 +292,11 @@ echo $GEMINI_API_KEY
 lsof -i :8000
 ```
 
+On Windows, avoid `uvicorn.exe` if App Control blocks it:
+```powershell
+./run_backend.ps1
+```
+
 ### Issue: Low confidence scores
 - This is normal initially - need feedback data
 - Accumulate 50+ samples for confidence to stabilize
@@ -383,7 +393,7 @@ curl -X POST http://127.0.0.1:8000/api/matcher/submit-feedback \
 Before going to production:
 - [ ] Install all dependencies: `pip install -r requirements.txt`
 - [ ] Set Gemini API key in `.env`
-- [ ] Start backend: `uvicorn app:app --reload`
+- [ ] Start backend: `./run_backend.ps1`
 - [ ] Start frontend: `npm run dev`
 - [ ] Test single resume match
 - [ ] Test recruiter search

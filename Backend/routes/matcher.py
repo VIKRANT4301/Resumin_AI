@@ -3,6 +3,7 @@ import os
 import shutil
 import uuid
 import zipfile
+import math
 from xml.etree import ElementTree
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -25,22 +26,15 @@ from services.candidate_store import (
     create_session,
     save_candidate,
     save_auth_user,
+    save_email_event,
     save_job_application,
     save_job,
+    save_recruiter_action,
     save_recruiter_job,
     save_match_run,
     save_profile,
     verify_profile_credentials,
 )
-from services.feedback_service import generate_ai_feedback
-from services.job_description_extractor import resolve_job_input
-from services.matcher_service import match_resume_to_job, parse_job_description
-from services.ocr_service import extract_text_from_image
-from services.profile_advisor import generate_future_job_card
-from services.pdf_parser import extract_text_from_pdf
-from services.resume_parser import parse_resume
-
-
 router = APIRouter()
 
 UPLOAD_DIR = "temp_uploads"
@@ -49,6 +43,54 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def _error(message: str) -> dict:
     return {"status": "error", "message": message}
+
+
+def _resolve_job_input(job_input: str) -> str:
+    from services.job_description_extractor import resolve_job_input
+
+    return resolve_job_input(job_input)
+
+
+def _parse_job_description(job_text: str) -> dict:
+    from services.matcher_service import parse_job_description
+
+    return parse_job_description(job_text)
+
+
+def _match_resume(resume: dict, job_text: str) -> dict:
+    from services.matcher_service import match_resume_to_job
+
+    return match_resume_to_job(resume, job_text)
+
+
+def _parse_resume_payload(resume_text: str, filename: str) -> dict:
+    from services.resume_parser import parse_resume
+
+    return parse_resume(resume_text, filename)
+
+
+def _generate_feedback(resume: dict, job_text: str, match: dict) -> dict:
+    from services.feedback_service import generate_ai_feedback
+
+    return generate_ai_feedback(resume, job_text, match)
+
+
+def _generate_job_card(profile: dict, resume: dict) -> dict:
+    from services.profile_advisor import generate_future_job_card
+
+    return generate_future_job_card(profile, resume)
+
+
+def _extract_pdf_text(file_path: str) -> str:
+    from services.pdf_parser import extract_text_from_pdf
+
+    return extract_text_from_pdf(file_path)
+
+
+def _extract_image_text(file_path: str) -> str:
+    from services.ocr_service import extract_text_from_image
+
+    return extract_text_from_image(file_path)
 
 
 def _read_bearer_token(request: Request) -> str:
@@ -116,13 +158,13 @@ async def _extract_resume_text(file: UploadFile) -> str:
 
         extension = file.filename.rsplit(".", 1)[-1].lower()
         if extension == "pdf":
-            return extract_text_from_pdf(file_path)
+            return _extract_pdf_text(file_path)
         if extension == "docx":
             return _extract_text_from_docx(file_path)
         if extension == "doc":
             return _extract_text_from_doc(file_path)
         if extension in {"jpg", "jpeg", "png"}:
-            return extract_text_from_image(file_path)
+            return _extract_image_text(file_path)
         raise ValueError("Unsupported file type")
     finally:
         if os.path.exists(file_path):
@@ -134,7 +176,7 @@ async def _parse_uploaded_resume(file: UploadFile, persist: bool) -> dict:
     if not resume_text.strip():
         raise ValueError("No text extracted from resume")
 
-    parsed = parse_resume(resume_text, file.filename)
+    parsed = _parse_resume_payload(resume_text, file.filename)
     if parsed.get("_parse_status") != "success":
         raise ValueError(parsed.get("_error", "Resume parsing failed"))
 
@@ -157,6 +199,10 @@ def _build_ranked_candidate(candidate: dict, match: dict, feedback: dict) -> dic
         "required_match_rate": summary.get("required_match_rate", 0),
         "preferred_match_rate": summary.get("preferred_match_rate", 0),
         "score_band": summary.get("score_band", "Weak Fit"),
+        "confidence": match.get("confidence", {}),
+        "deal_breakers": match.get("deal_breakers", []),
+        "deal_breaker_flag": bool(match.get("deal_breakers", [])),
+        "anomaly_alert": match.get("anomaly_alert", ""),
         "scoring_breakdown": summary.get("scoring_breakdown", {}),
         "job_role": match.get("job_role", "Target Role"),
         "match_reason": "; ".join(match.get("why_fit", [])[:2]),
@@ -173,6 +219,12 @@ def _build_ranked_candidate(candidate: dict, match: dict, feedback: dict) -> dic
         "matched_preferred_skills": match.get("matched_preferred_skills", []),
         "why_fit": match.get("why_fit", []),
         "verdict": match.get("verdict", summary.get("score_band", "Weak Fit")),
+        "skill_breakdown": match.get("skill_breakdown", {}),
+        "skill_graph": match.get("skill_graph", {}),
+        "gap_heatmap": match.get("gap_heatmap", []),
+        "experience_timeline": match.get("experience_timeline", []),
+        "experience_snapshot": match.get("experience_snapshot", {}),
+        "ranking_explanation": match.get("ranking_explanation", {}),
         "summary": summary,
         "resume": candidate,
         "match": match,
@@ -269,10 +321,33 @@ def _build_dashboard_candidate(candidate: dict, action_state: dict[str, dict]) -
         "name": candidate.get("name", ""),
         "email": candidate.get("email", ""),
         "match_score": float(candidate.get("match_score", 0) or 0),
+        "job_role": candidate.get("job_role", ""),
+        "score_band": candidate.get("score_band", "Weak Fit"),
+        "confidence": candidate.get("confidence", {}),
+        "deal_breaker_flag": bool(candidate.get("deal_breaker_flag")),
+        "deal_breakers": candidate.get("deal_breakers", []),
+        "anomaly_alert": candidate.get("anomaly_alert", ""),
         "status": status,
         "why_fit": why_fit,
         "gaps": gaps,
         "next_step": _next_step(candidate, status),
+        "top_matches": candidate.get("top_matches", []),
+        "strengths": candidate.get("strengths", []),
+        "concerns": candidate.get("concerns", []),
+        "matched_skills": candidate.get("matched_skills", []),
+        "missing_required_skills": candidate.get("missing_required_skills", []),
+        "matched_preferred_skills": candidate.get("matched_preferred_skills", []),
+        "scoring_breakdown": candidate.get("scoring_breakdown", {}),
+        "skill_breakdown": candidate.get("skill_breakdown", {}),
+        "skill_graph": candidate.get("skill_graph", {}),
+        "gap_heatmap": candidate.get("gap_heatmap", []),
+        "experience_timeline": candidate.get("experience_timeline", []),
+        "experience_snapshot": candidate.get("experience_snapshot", {}),
+        "ranking_explanation": candidate.get("ranking_explanation", {}),
+        "summary": candidate.get("summary", {}),
+        "resume": candidate.get("resume", {}),
+        "match": candidate.get("match", {}),
+        "feedback": candidate.get("feedback", {}),
     }
 
 
@@ -288,26 +363,105 @@ def _build_dashboard_response(ranked: list[dict], action_state: object = None) -
             "total_candidates": len(candidates),
             "shortlisted_count": shortlisted_count,
             "rejected_count": rejected_count,
+            "top_score": max((item.get("match_score", 0) for item in candidates), default=0),
+            "reliability": _ranking_reliability_summary(ranked),
         },
         "candidates": candidates,
     }
 
 
+def _ranking_reliability_summary(ranked: list[dict]) -> dict:
+    if not ranked:
+        return {
+            "overall_reliability": 0,
+            "precision_at_k": 0,
+            "ndcg": 0,
+            "skill_match_accuracy": 0,
+            "experience_confidence": 0,
+        }
+
+    top_k = min(5, len(ranked))
+    top_candidates = ranked[:top_k]
+    relevant = 0
+    gains = []
+    ideal_gains = []
+    skill_acc = []
+    exp_conf = []
+
+    for item in ranked:
+        summary = item.get("summary", {})
+        confidence = item.get("confidence", {})
+        critical_cover = float(summary.get("critical_fit_percent", 0) or 0)
+        required_rate = float(summary.get("required_match_rate", 0) or 0)
+        experience_confidence = float(summary.get("experience_confidence_score", 0) or 0)
+        exp_conf.append(experience_confidence)
+        skill_acc.append((critical_cover * 0.65) + (required_rate * 100 * 0.35))
+
+    for index, item in enumerate(top_candidates, start=1):
+        summary = item.get("summary", {})
+        gain = (
+            float(summary.get("critical_fit_percent", 0) or 0) * 0.5
+            + float(summary.get("required_skill_match", 0) or 0) * 0.3
+            + float(item.get("confidence", {}).get("percent", 0) or 0) * 0.2
+        ) / 100
+        gains.append(gain / math.log2(index + 1))
+        if float(summary.get("critical_fit_percent", 0) or 0) >= 70 and not item.get("deal_breaker_flag"):
+            relevant += 1
+
+    scored_gains = sorted(
+        [
+            (
+                float(item.get("summary", {}).get("critical_fit_percent", 0) or 0) * 0.5
+                + float(item.get("summary", {}).get("required_skill_match", 0) or 0) * 0.3
+                + float(item.get("confidence", {}).get("percent", 0) or 0) * 0.2
+            ) / 100
+            for item in ranked
+        ],
+        reverse=True,
+    )
+    for index, gain in enumerate(scored_gains[:top_k], start=1):
+        ideal_gains.append(gain / math.log2(index + 1))
+
+    precision_at_k = round((relevant / top_k) * 100, 1)
+    ndcg = round((sum(gains) / max(sum(ideal_gains), 1e-6)) * 100, 1)
+    skill_match_accuracy = round(sum(skill_acc) / len(skill_acc), 1)
+    experience_confidence = round(sum(exp_conf) / len(exp_conf), 1)
+    overall_reliability = round(
+        (precision_at_k * 0.35) + (ndcg * 0.25) + (skill_match_accuracy * 0.25) + (experience_confidence * 0.15),
+        1,
+    )
+
+    return {
+        "overall_reliability": overall_reliability,
+        "precision_at_k": precision_at_k,
+        "ndcg": ndcg,
+        "skill_match_accuracy": skill_match_accuracy,
+        "experience_confidence": experience_confidence,
+    }
+
+
 def _rank_candidates(candidates: list[dict], job_text: str) -> tuple[dict, list[dict]]:
-    job = save_job(job_text, parse_job_description(job_text))
+    job = save_job(job_text, _parse_job_description(job_text))
     ranked = []
 
     for candidate in candidates:
-        match = match_resume_to_job(candidate, job_text)
+        match = _match_resume(candidate, job_text)
         if match.get("error"):
             continue
 
-        feedback = generate_ai_feedback(candidate, job_text, match)
+        feedback = _generate_feedback(candidate, job_text, match)
         if candidate.get("_candidate_key"):
             save_match_run(candidate, job, match, feedback)
         ranked.append(_build_ranked_candidate(candidate, match, feedback))
 
-    ranked.sort(key=lambda item: item.get("match_score", 0), reverse=True)
+    # Improved ranking: primary sort by match_score, tie-breaker by exact matches count
+    # This ensures candidates with exact skill matches rank above those with semantic matches at same score
+    ranked.sort(key=lambda item: (
+        item.get("match_score", 0),
+        item.get("summary", {}).get("exact_match_count", 0),
+        item.get("summary", {}).get("experience_score", 0),
+    ), reverse=True)
+    
     for index, item in enumerate(ranked, start=1):
         item["rank"] = index
     return job, ranked
@@ -350,7 +504,7 @@ def _sync_profile_resume(profile: dict, parsed_resume: dict) -> tuple[dict, dict
     }
     previous_candidate_key = profile.get("candidate_key", "")
     resume = _attach_profile_identity(parsed_resume, refreshed_profile)
-    job_card = generate_future_job_card(refreshed_profile, resume)
+    job_card = _generate_job_card(refreshed_profile, resume)
     saved_profile = save_profile(refreshed_profile, resume.get("_candidate_key", ""), job_card)
     link_auth_user_to_candidate(
         refreshed_profile["email"],
@@ -405,17 +559,17 @@ async def match_single_resume(file: UploadFile = File(...), job_input: str = For
         return _error("Job description is required")
 
     try:
-        resolved_job_input = resolve_job_input(job_input)
+        resolved_job_input = _resolve_job_input(job_input)
         if not resolved_job_input:
             return _error("Job description is required")
 
         resume = await _parse_uploaded_resume(file, persist=True)
-        job = save_job(resolved_job_input, parse_job_description(resolved_job_input))
-        match = match_resume_to_job(resume, resolved_job_input)
+        job = save_job(resolved_job_input, _parse_job_description(resolved_job_input))
+        match = _match_resume(resume, resolved_job_input)
         if match.get("error"):
             return _error(match["error"])
 
-        feedback = generate_ai_feedback(resume, resolved_job_input, match)
+        feedback = _generate_feedback(resume, resolved_job_input, match)
         if resume.get("_candidate_key"):
             save_match_run(resume, job, match, feedback)
 
@@ -446,7 +600,7 @@ async def recruiter_find(request: Request):
         return {"status": "success", "results": [], "total_candidates": 0, "requested_count": top_k}
 
     try:
-        resolved_job_input = resolve_job_input(job_input)
+        resolved_job_input = _resolve_job_input(job_input)
         if not resolved_job_input:
             return _error("Job description is required")
 
@@ -580,7 +734,7 @@ async def recruiter_bulk(
     limit = max(1, min(100, int(top_k or 10)))
 
     try:
-        resolved_job_input = resolve_job_input(job_input)
+        resolved_job_input = _resolve_job_input(job_input)
         if not resolved_job_input:
             return _error("Job description is required")
 
@@ -623,6 +777,78 @@ async def list_candidates(request: Request):
 async def dashboard(request: Request):
     _require_session(request, {"recruiter"})
     return {"status": "success", "statistics": get_dashboard_stats()}
+
+
+@router.post("/recruiter/actions")
+async def recruiter_action(request: Request):
+    session = _require_session(request, {"recruiter"})
+    body = await request.json()
+
+    action = str(body.get("action") or "").strip().lower()
+    if action not in {"shortlisted", "rejected", "saved", "liked", "disliked"}:
+        return _error("Valid recruiter action is required")
+
+    candidate_email = str(body.get("candidate_email") or "").strip().lower()
+    candidate_key = str(body.get("candidate_key") or "").strip()
+    recruiter_email = session["user"].get("email", "")
+    job_key = str(body.get("job_key") or "").strip()
+    role_name = str(body.get("role_name") or "Target Role").strip()
+    candidate_name = str(body.get("candidate_name") or "Candidate").strip()
+    reason = str(body.get("reason") or "").strip()
+    strengths = [str(item).strip() for item in (body.get("strengths") or []) if str(item).strip()]
+    next_step = str(body.get("next_step") or "").strip()
+
+    email_event = None
+    email_status = ""
+    if action == "shortlisted" and candidate_email:
+        subject = f"You have been shortlisted for {role_name}"
+        body_text = "\n".join(
+            [
+                f"Hello {candidate_name},",
+                "",
+                f"You have been shortlisted for {role_name}.",
+                f"Key strengths we noticed: {', '.join(strengths[:3]) or 'role alignment and strong visible evidence'}.",
+                f"Next steps: {next_step or 'Our team will contact you with the next interview step shortly.'}",
+                "",
+                "Regards,",
+                "ProRes Hiring Team",
+            ]
+        )
+        email_event = save_email_event(
+            {
+                "recipient_email": candidate_email,
+                "event_type": "shortlist_email",
+                "subject": subject,
+                "body": body_text,
+                "status": "logged",
+                "payload": body,
+            }
+        )
+        email_status = "logged"
+
+    saved_action = save_recruiter_action(
+        {
+            "recruiter_email": recruiter_email,
+            "candidate_key": candidate_key,
+            "candidate_email": candidate_email,
+            "job_key": job_key,
+            "action": action,
+            "reason": reason,
+            "email_status": email_status,
+            "payload": body,
+        }
+    )
+
+    return {
+        "status": "success",
+        "action": saved_action,
+        "email_event": email_event,
+        "message": (
+            "Email sent to candidate"
+            if email_event
+            else "Recruiter feedback captured for learning"
+        ),
+    }
 
 
 @router.get("/profile")
@@ -673,7 +899,7 @@ async def register_user(
                 return _error("Candidate signup requires a resume")
             parsed_resume = await _parse_uploaded_resume(file, persist=False)
             resume = _attach_profile_identity(parsed_resume, profile_payload)
-            job_card = generate_future_job_card(profile_payload, resume)
+            job_card = _generate_job_card(profile_payload, resume)
             profile = save_profile(
                 profile_payload,
                 resume.get("_candidate_key", ""),
@@ -792,16 +1018,16 @@ async def match_profile_resume(
             if not resume:
                 return _error("No resume found for this profile. Please upload one.")
 
-        resolved_job_input = resolve_job_input(job_input)
+        resolved_job_input = _resolve_job_input(job_input)
         if not resolved_job_input:
             return _error("Job description is required")
 
-        job = save_job(resolved_job_input, parse_job_description(resolved_job_input))
-        match = match_resume_to_job(resume, resolved_job_input)
+        job = save_job(resolved_job_input, _parse_job_description(resolved_job_input))
+        match = _match_resume(resume, resolved_job_input)
         if match.get("error"):
             return _error(match["error"])
 
-        feedback = generate_ai_feedback(resume, resolved_job_input, match)
+        feedback = _generate_feedback(resume, resolved_job_input, match)
         if resume.get("_candidate_key"):
             save_match_run(resume, job, match, feedback)
 

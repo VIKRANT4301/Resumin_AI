@@ -1,23 +1,8 @@
 import json
-import os
 import re
 
-import google.generativeai as genai
-from dotenv import load_dotenv
-
+from services.ai_runtime import get_generative_model
 from utils.cleaner import clean_json
-
-
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
-
-API_KEY = os.getenv("GEMINI_API_KEY")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-
-MODEL = genai.GenerativeModel(
-    "gemini-2.5-flash-lite",
-    generation_config={"response_mime_type": "application/json"},
-)
 
 RESUME_PARSER_PROMPT = """
 You are a resume extraction engine for an AI hiring platform.
@@ -332,7 +317,7 @@ def parse_resume(text: str, filename: str = "unknown") -> dict:
 
     payload = {}
     try:
-        response = MODEL.generate_content(
+        response = get_generative_model("gemini-2.5-flash-lite", "application/json").generate_content(
             f"{RESUME_PARSER_PROMPT}\n\nRESUME_TEXT:\n{text}",
             generation_config={"temperature": 0.1},
         )

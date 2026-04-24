@@ -5,9 +5,6 @@ import uuid
 from fastapi import APIRouter, File, UploadFile
 
 from services.candidate_store import save_candidate
-from services.ocr_service import extract_text_from_image
-from services.pdf_parser import extract_text_from_pdf
-from services.resume_parser import parse_resume
 
 
 router = APIRouter()
@@ -27,14 +24,20 @@ async def parse_resume_api(file: UploadFile = File(...)):
 
         extension = file.filename.split(".")[-1].lower()
         if extension == "pdf":
+            from services.pdf_parser import extract_text_from_pdf
+
             text = extract_text_from_pdf(file_path)
         elif extension in {"jpg", "jpeg", "png"}:
+            from services.ocr_service import extract_text_from_image
+
             text = extract_text_from_image(file_path)
         else:
             return {"status": "error", "message": "Unsupported file type"}
 
         if not str(text or "").strip():
             return {"status": "error", "message": "No text extracted from file"}
+
+        from services.resume_parser import parse_resume
 
         result = parse_resume(text, file.filename)
         if result.get("_parse_status") != "success":
