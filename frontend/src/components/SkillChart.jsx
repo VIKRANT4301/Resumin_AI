@@ -1,4 +1,4 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 function normalizeMetric(item) {
@@ -28,6 +28,14 @@ function getFill(score) {
 }
 
 export default function SkillChart({ scores, matchResult = null }) {
+  const [showLabels, setShowLabels] = useState(() => window.innerWidth >= 1280);
+
+  useEffect(() => {
+    const onResize = () => setShowLabels(window.innerWidth >= 1280);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const rawMetrics = matchResult?.skill_analysis?.matched_skills || Object.values(scores || {});
   const metrics = rawMetrics.map(normalizeMetric);
 
@@ -95,21 +103,22 @@ export default function SkillChart({ scores, matchResult = null }) {
         </div>
       </div>
 
-      <div className="relative flex h-[460px] items-center justify-center overflow-visible rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(18,15,12,0.88),rgba(14,11,9,0.8))] p-4">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="relative flex h-[360px] min-h-[360px] items-center justify-center overflow-hidden rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(18,15,12,0.88),rgba(14,11,9,0.8))] p-4 md:h-[460px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               cx="50%"
               cy="50%"
-              innerRadius={94}
-              outerRadius={132}
+              innerRadius={showLabels ? 94 : 78}
+              outerRadius={showLabels ? 132 : 108}
               paddingAngle={data.length > 10 ? 3 : 5}
               dataKey="value"
               stroke="#120f0d"
               strokeWidth={4}
-              label={renderCustomizedLabel}
-              labelLine={{ stroke: "#44403c", strokeWidth: 1 }}
+              label={showLabels ? renderCustomizedLabel : false}
+              labelLine={showLabels ? { stroke: "#44403c", strokeWidth: 1 } : false}
               animationDuration={1300}
             >
               {data.map((entry, index) => (
@@ -155,6 +164,27 @@ export default function SkillChart({ scores, matchResult = null }) {
             <span className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">{averageScore}% avg</span>
           </div>
           <div className="absolute h-44 w-44 animate-pulse rounded-full border border-cyan-400/5" />
+        </div>
+      </div>
+
+        <div className="rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(18,15,12,0.88),rgba(14,11,9,0.8))] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">Skill Evidence</p>
+          <div className="mt-4 space-y-3">
+            {data.slice(0, 8).map((item) => (
+              <div key={item.name} className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-white">{item.name}</p>
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-stone-400">{Math.round(item.actualValue)}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/8">
+                  <div className="h-full rounded-full" style={{ width: `${item.actualValue}%`, backgroundColor: item.fill }} />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-stone-400">
+                  {item.evidence_text || `${item.name} contributes to role fit through resume-visible evidence.`}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

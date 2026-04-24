@@ -1,181 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { Suspense, lazy, startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import {
-  ArrowRight,
   Briefcase,
-  Eye,
   Filter,
-  Layers3,
   Link2,
   LoaderCircle,
-  LogOut,
   Pencil,
   Plus,
-  ShieldCheck,
-  Sparkles,
   Target,
   Trash2,
-  UserRound,
-  Users,
 } from "lucide-react";
-import Result from "./components/Result";
-import Ranking from "./components/Ranking";
+import AuthPage from "./pages/AuthPage";
+import DashboardShell from "./pages/DashboardShell";
+import { SESSION_KEY, restoreStoredSession } from "./services/api";
+import { normalizeListInput, getRiskLevel } from "./utils/formatters";
+import { navigate, readRoute } from "./utils/navigation";
+import { ActionModal, AuthInput, authCardClass, FieldArea, LoadingPanel, ScoreBand, TabButton, ToastBanner } from "./components/ui/primitives";
 
-const API_BASE = "http://127.0.0.1:8000/api/matcher";
-const SESSION_KEY = "prores_session";
-
-const authCard =
-  "relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.1),transparent_34%),linear-gradient(180deg,rgba(24,19,15,0.98),rgba(14,11,9,0.98))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-sm";
-
-function readRoute() {
-  return window.location.hash.replace(/^#/, "") || "/signin";
-}
-
-function navigate(nextRoute) {
-  if (window.location.hash !== `#${nextRoute}`) {
-    window.location.hash = nextRoute;
-  }
-}
-
-function normalizeListInput(value) {
-  return String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function AuthInput({ label, ...props }) {
-  return (
-    <label className="block">
-      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">{label}</p>
-      <input
-        {...props}
-        className="w-full rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(21,18,15,0.96),rgba(14,11,9,0.96))] px-4 py-3.5 text-sm text-white outline-none transition duration-200 placeholder:text-stone-500 focus:border-cyan-300/40 focus:bg-[#15110e]"
-      />
-    </label>
-  );
-}
-
-function FieldArea({ label, children }) {
-  return (
-    <label className="block">
-      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">{label}</p>
-      {children}
-    </label>
-  );
-}
-
-function TabButton({ active, children, onClick }) {
-  return (
-    <Motion.button
-      type="button"
-      onClick={onClick}
-      whileHover={{ y: -1, scale: 1.01 }}
-      whileTap={{ scale: 0.985 }}
-      className={`rounded-[1rem] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] transition ${
-        active
-          ? "bg-[linear-gradient(135deg,#67e8f9,#a7f3d0)] text-stone-950 shadow-[0_12px_30px_rgba(103,232,249,0.22)]"
-          : "border border-white/10 bg-[linear-gradient(180deg,rgba(20,16,14,0.96),rgba(14,11,9,0.96))] text-stone-300 hover:border-white/16 hover:text-white"
-      }`}
-    >
-      {children}
-    </Motion.button>
-  );
-}
-
-function LoadingPanel({ label = "Running analysis" }) {
-  return (
-    <div className={`${authCard} min-h-[320px]`}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.08),transparent_30%)]" />
-      <div className="relative space-y-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="h-4 w-36 animate-pulse rounded-full bg-white/10" />
-          <div className="h-10 w-28 animate-pulse rounded-full bg-cyan-300/10" />
-        </div>
-        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[1.8rem] border border-white/6 bg-white/[0.03] p-5">
-            <div className="h-5 w-2/5 animate-pulse rounded-full bg-white/10" />
-            <div className="mt-4 h-12 animate-pulse rounded-[1.2rem] bg-white/6" />
-            <div className="mt-5 space-y-3">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="h-4 animate-pulse rounded-full bg-white/6" />
-              ))}
-            </div>
-          </div>
-          <div className="rounded-[1.8rem] border border-white/6 bg-white/[0.03] p-5">
-            <div className="h-4 w-24 animate-pulse rounded-full bg-white/10" />
-            <div className="mt-5 h-32 animate-pulse rounded-[1.4rem] bg-white/6" />
-            <div className="mt-4 h-11 animate-pulse rounded-[1rem] bg-white/8" />
-            <div className="mt-3 h-11 animate-pulse rounded-[1rem] bg-white/8" />
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {[0, 1, 2].map((item) => (
-            <div key={item} className="h-28 animate-pulse rounded-[1.4rem] border border-white/6 bg-white/[0.03]" />
-          ))}
-        </div>
-      </div>
-      <div className="relative mt-8 flex items-center gap-3 text-sm text-stone-400">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10">
-          <LoaderCircle className="animate-spin text-amber-300" size={18} />
-        </span>
-        <div>
-          <p className="font-semibold text-stone-200">{label}</p>
-          <p className="text-xs text-stone-500">Building recruiter-ready ranking cards and evidence panels.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScoreBand({ score, label, accent = "cyan" }) {
-  const tone =
-    accent === "amber"
-      ? score >= 90
-        ? "bg-emerald-400"
-        : score >= 75
-          ? "bg-amber-300"
-          : score >= 60
-            ? "bg-orange-300"
-            : "bg-rose-400"
-      : score >= 90
-        ? "bg-emerald-400"
-        : score >= 75
-          ? "bg-cyan-400"
-          : score >= 60
-            ? "bg-amber-300"
-            : "bg-rose-400";
-
-  return (
-    <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(20,16,14,0.96),rgba(14,11,9,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">{label}</p>
-      <div className="mt-4">
-        <div className="h-3 overflow-hidden rounded-full bg-white/6">
-          <Motion.div
-            className={`h-full rounded-full ${tone}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.max(4, Math.min(100, score || 0))}%` }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          />
-        </div>
-        <div className="mt-3 flex items-end justify-between gap-3">
-          <p className="text-3xl font-black text-white">{Math.round(score || 0)}%</p>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">
-            {score >= 90 ? "Exceptional" : score >= 75 ? "Strong" : score >= 60 ? "Moderate" : "Needs review"}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function getRiskLevel(feedback) {
-  const severities = (feedback?.risk_signals || []).map((item) => String(item?.severity || "").toLowerCase());
-  if (severities.includes("high")) return { label: "High Risk", value: "high" };
-  if (severities.includes("medium")) return { label: "Medium Risk", value: "medium" };
-  return { label: "Low Risk", value: "low" };
-}
+const Result = lazy(() => import("./components/Result"));
+const Ranking = lazy(() => import("./components/Ranking"));
 
 function CandidateJobsPanel({ api, onAuthError }) {
   const [jobs, setJobs] = useState([]);
@@ -234,7 +77,7 @@ function CandidateJobsPanel({ api, onAuthError }) {
     <div className="space-y-6">
       {error ? <div className="rounded-[1.4rem] border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div> : null}
 
-      <section className={authCard}>
+      <section className={authCardClass}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">Open Jobs</p>
@@ -289,7 +132,7 @@ function CandidateJobsPanel({ api, onAuthError }) {
         </div>
       </section>
 
-      <section className={authCard}>
+      <section className={authCardClass}>
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">My Applications</p>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {applications.map((item) => (
@@ -430,7 +273,7 @@ function CandidateDashboard({ session, setSession, api, onAuthError }) {
 
   return (
     <div className="space-y-6">
-      <section className={`${authCard} overflow-hidden`}>
+      <section className={`${authCardClass} overflow-hidden`}>
         <div className="flex flex-wrap items-center gap-3">
           <TabButton active={activeTab === "analysis"} onClick={() => setActiveTab("analysis")}>Analysis</TabButton>
           <TabButton active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")}>Jobs</TabButton>
@@ -636,7 +479,11 @@ function CandidateDashboard({ session, setSession, api, onAuthError }) {
         <>
           {error ? <div className="rounded-[1.4rem] border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div> : null}
           {loading ? <LoadingPanel label="Building a recruiter-style candidate analysis" /> : null}
-          {!loading && matchResult ? <Result mode="candidate" data={matchResult} resume={resume || profile.resume || {}} feedback={feedback || {}} /> : null}
+          {!loading && matchResult ? (
+            <Suspense fallback={<LoadingPanel label="Preparing candidate insight report" />}>
+              <Result mode="candidate" data={matchResult} resume={resume || profile.resume || {}} feedback={feedback || {}} />
+            </Suspense>
+          ) : null}
         </>
       ) : null}
     </div>
@@ -724,7 +571,7 @@ function RecruiterJobManager({ api, onAuthError, onUseJobForRanking }) {
 
   return (
     <div className="space-y-6">
-      <section className={authCard}>
+      <section className={authCardClass}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">Recruiter Control</p>
@@ -769,7 +616,7 @@ function RecruiterJobManager({ api, onAuthError, onUseJobForRanking }) {
         </div>
       </section>
 
-      <section className={authCard}>
+      <section className={authCardClass}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">My Job Posts</p>
@@ -835,7 +682,8 @@ function RecruiterDashboard({ api, onAuthError }) {
   const [decisions, setDecisions] = useState({});
   const [meta, setMeta] = useState(null);
   const [filters, setFilters] = useState({ scoreMin: 0, skill: "", risk: "all" });
-  const [actionMessage, setActionMessage] = useState("");
+  const [toast, setToast] = useState({ message: "", tone: "success" });
+  const [rejectDialog, setRejectDialog] = useState({ open: false, candidateId: "", reason: "" });
 
   const candidateKey = (item) => item.email || item.name || String(item.rank || "");
   const buildActionStatePayload = () =>
@@ -883,15 +731,17 @@ function RecruiterDashboard({ api, onAuthError }) {
       }
 
       const results = response.data.candidates || [];
-      setRanking(results);
-      setMeta({
-        role: selectedJobPost?.title || "Target Role",
-        total: response.data.summary?.total_candidates || results.length,
-        shortlisted: response.data.summary?.shortlisted_count || 0,
-        rejected: response.data.summary?.rejected_count || 0,
-        reliability: response.data.summary?.reliability || null,
+      startTransition(() => {
+        setRanking(results);
+        setMeta({
+          role: selectedJobPost?.title || "Target Role",
+          total: response.data.summary?.total_candidates || results.length,
+          shortlisted: response.data.summary?.shortlisted_count || 0,
+          rejected: response.data.summary?.rejected_count || 0,
+          reliability: response.data.summary?.reliability || null,
+        });
+        setActiveTab("rank");
       });
-      setActiveTab("rank");
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
         onAuthError();
@@ -989,8 +839,10 @@ function RecruiterDashboard({ api, onAuthError }) {
     });
   }, [ranking, meta?.role, decisions]);
 
+  const deferredRankingCards = useDeferredValue(rankingCards);
+
   const filteredCards = useMemo(() => {
-    return rankingCards.filter((item) => {
+    return deferredRankingCards.filter((item) => {
       if ((item.score || 0) < filters.scoreMin) return false;
       if (filters.skill.trim()) {
         const haystack = JSON.stringify([
@@ -1004,7 +856,13 @@ function RecruiterDashboard({ api, onAuthError }) {
       if (filters.risk !== "all" && item.riskLevel !== filters.risk) return false;
       return true;
     });
-  }, [rankingCards, filters]);
+  }, [deferredRankingCards, filters]);
+
+  useEffect(() => {
+    if (!toast.message) return undefined;
+    const timer = window.setTimeout(() => setToast({ message: "", tone: "success" }), 4200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   const handleShortlist = async (candidateId) => {
     const target = rankingCards.find((item) => item.id === candidateId);
@@ -1015,7 +873,7 @@ function RecruiterDashboard({ api, onAuthError }) {
     }));
     setMeta((current) => current ? ({ ...current, shortlisted: Math.max(0, (current.shortlisted || 0) + (wasShortlisted ? -1 : 1)) }) : current);
     if (!target || wasShortlisted) {
-      setActionMessage("Shortlist removed.");
+      setToast({ message: "Shortlist removed.", tone: "warn" });
       return;
     }
     try {
@@ -1029,22 +887,32 @@ function RecruiterDashboard({ api, onAuthError }) {
         next_step: target.next_step || "We will contact you with interview details.",
         reason: "Recruiter shortlisted from ranking workspace",
       });
-      setActionMessage(response.data?.message ? `✅ ${response.data.message}` : "✅ Candidate shortlisted");
+      setToast({
+        message: response.data?.message || "Candidate shortlisted and recruiter workflow updated.",
+        tone: "success",
+      });
     } catch (err) {
-      setActionMessage(err.response?.data?.message || "Unable to record shortlist action.");
+      setToast({ message: err.response?.data?.message || "Unable to record shortlist action.", tone: "error" });
     }
   };
 
-  const handleReject = async (candidateId) => {
+  const openRejectDialog = (candidateId) => {
+    setRejectDialog({ open: true, candidateId, reason: "" });
+  };
+
+  const handleReject = async () => {
+    const candidateId = rejectDialog.candidateId;
     const target = rankingCards.find((item) => item.id === candidateId);
     const wasRejected = Boolean(target?.rejected);
+    const rejectReason = rejectDialog.reason.trim();
+    setRejectDialog({ open: false, candidateId: "", reason: "" });
     setDecisions((current) => ({
       ...current,
       [candidateId]: current[candidateId] === "rejected" ? "" : "rejected",
     }));
     setMeta((current) => current ? ({ ...current, rejected: Math.max(0, (current.rejected || 0) + (wasRejected ? -1 : 1)) }) : current);
     if (!target || wasRejected) {
-      setActionMessage("Rejection removed.");
+      setToast({ message: "Rejection removed.", tone: "warn" });
       return;
     }
     try {
@@ -1055,17 +923,20 @@ function RecruiterDashboard({ api, onAuthError }) {
         candidate_name: target.candidate,
         role_name: target.role,
         strengths: target.fitBullets || [],
-        reason: target.dealBreakers?.[0]?.reason || target.criticalGaps?.[0] || "Recruiter rejected from ranking workspace",
+        reason: rejectReason || target.dealBreakers?.[0]?.reason || target.criticalGaps?.[0] || "Recruiter rejected from ranking workspace",
       });
-      setActionMessage(response.data?.message ? `👍 ${response.data.message}` : "👍 Recruiter feedback captured");
+      setToast({
+        message: response.data?.message || "Rejection recorded for recruiter analytics.",
+        tone: "warn",
+      });
     } catch (err) {
-      setActionMessage(err.response?.data?.message || "Unable to record reject action.");
+      setToast({ message: err.response?.data?.message || "Unable to record reject action.", tone: "error" });
     }
   };
 
   return (
     <div className="space-y-6">
-      <section className={`${authCard} overflow-hidden`}>
+      <section className={`${authCardClass} overflow-hidden`}>
         <div className="flex flex-wrap items-center gap-3">
           <TabButton active={activeTab === "rank"} onClick={() => setActiveTab("rank")}>Rank Candidates</TabButton>
           <TabButton active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")}>Job Posts</TabButton>
@@ -1246,11 +1117,11 @@ function RecruiterDashboard({ api, onAuthError }) {
       {activeTab === "rank" ? (
         <>
           {error ? <div className="rounded-[1.4rem] border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div> : null}
-          {actionMessage ? <div className="rounded-[1.4rem] border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-50">{actionMessage}</div> : null}
+          <ToastBanner message={toast.message} tone={toast.tone} onClose={() => setToast({ message: "", tone: "success" })} />
           {loading ? <LoadingPanel label="Ranking candidates with weighted recruiter scoring" /> : null}
 
           {!loading && ranking.length > 0 ? (
-            <section className={authCard}>
+            <section className={authCardClass}>
               <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">Candidate Ranking</p>
@@ -1284,273 +1155,31 @@ function RecruiterDashboard({ api, onAuthError }) {
                 {filteredCards.length} visible after smart filtering
               </div>
 
-              <Ranking
-                data={filteredCards}
-                onShortlist={handleShortlist}
-                onReject={handleReject}
-              />
+              <Suspense fallback={<LoadingPanel label="Loading recruiter intelligence panels" />}>
+                <Ranking
+                  data={filteredCards}
+                  onShortlist={handleShortlist}
+                  onReject={openRejectDialog}
+                />
+              </Suspense>
             </section>
           ) : null}
         </>
       ) : null}
+      <ActionModal
+        open={rejectDialog.open}
+        title="Reject Candidate"
+        description="Add an optional rejection reason to improve recruiter traceability and future ranking quality."
+        value={rejectDialog.reason}
+        onChange={(value) => setRejectDialog((current) => ({ ...current, reason: value }))}
+        onCancel={() => setRejectDialog({ open: false, candidateId: "", reason: "" })}
+        onConfirm={handleReject}
+        confirmLabel="Reject Candidate"
+      />
     </div>
   );
 }
 
-function AuthPage({ mode, onSuccess }) {
-  const isSignUp = mode === "signup";
-  const [role, setRole] = useState("candidate");
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    phone: "",
-    location: "",
-    current_title: "",
-    target_title: "",
-  });
-  const [resumeFile, setResumeFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const submit = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      let response;
-
-      if (isSignUp) {
-        if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
-          throw new Error("Name, email, and password are required.");
-        }
-        if (role === "candidate" && !resumeFile) {
-          throw new Error("Candidate signup requires a resume.");
-        }
-
-        const payload = new FormData();
-        Object.entries({ ...form, role }).forEach(([key, value]) => payload.append(key, value));
-        if (resumeFile) payload.append("file", resumeFile);
-        response = await axios.post(`${API_BASE}/auth/register`, payload);
-      } else {
-        if (!form.email.trim() || !form.password.trim()) {
-          throw new Error("Email and password are required.");
-        }
-        response = await axios.post(`${API_BASE}/auth/login`, {
-          email: form.email,
-          password: form.password,
-        });
-      }
-
-      if (response.data.status !== "success" || !response.data.auth) {
-        throw new Error(response.data.message || "Authentication failed");
-      }
-
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(response.data.auth));
-      onSuccess(response.data.auth);
-    } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || err.message || "Authentication failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="mx-auto grid min-h-screen max-w-7xl gap-8 px-6 py-10 lg:grid-cols-[1.08fr_0.92fr]">
-      <section className="flex items-center">
-        <div className="space-y-7">
-          <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-amber-300">
-            <ShieldCheck size={14} />
-            AI Recruitment Platform
-          </div>
-          <div>
-            <h1 className="font-display text-5xl font-black tracking-tight text-white md:text-6xl">Daily hiring workflow, not demo-grade ranking screens</h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-stone-300">
-              Recruiters can create private job posts, rank candidates with evidence-based explanations, shortlist or reject with clear actions, and compare top candidates side-by-side. Candidates get a separate application experience and never see recruiter controls.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-              <UserRound className="text-amber-300" size={18} />
-              <p className="mt-3 text-lg font-black text-white">Candidate</p>
-              <p className="mt-2 text-sm leading-6 text-stone-400">View analysis, browse jobs, and apply without seeing recruiter-only tools.</p>
-            </div>
-            <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-              <Users className="text-cyan-300" size={18} />
-              <p className="mt-3 text-lg font-black text-white">Recruiter</p>
-              <p className="mt-2 text-sm leading-6 text-stone-400">Post jobs, rank candidates, filter, shortlist, reject, and compare.</p>
-            </div>
-            <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-              <Layers3 className="text-emerald-300" size={18} />
-              <p className="mt-3 text-lg font-black text-white">RBAC</p>
-              <p className="mt-2 text-sm leading-6 text-stone-400">Role separation is enforced in both UI flow and API access control.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <Motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className={authCard}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-500">{isSignUp ? "Create Account" : "Welcome Back"}</p>
-            <h2 className="mt-2 text-3xl font-black text-white">{isSignUp ? "Sign Up" : "Sign In"}</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate(isSignUp ? "/signin" : "/signup")}
-            className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-300 transition hover:text-white"
-          >
-            {isSignUp ? "Go To Sign In" : "Go To Sign Up"}
-          </button>
-        </div>
-
-        {isSignUp ? (
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            {[
-              { value: "candidate", label: "Candidate", desc: "Analysis, job browsing, and applications." },
-              { value: "recruiter", label: "Recruiter", desc: "Job posting, ranking, and shortlisting." },
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setRole(option.value)}
-                className={`rounded-[1.2rem] px-4 py-4 text-left transition ${role === option.value ? "bg-amber-300 text-stone-950" : "bg-[#120f0d] text-stone-400 hover:text-white"}`}
-              >
-                <p className="text-xs font-black uppercase tracking-[0.16em]">{option.label}</p>
-                <p className="mt-2 text-xs leading-5">{option.desc}</p>
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="mt-6 space-y-4">
-          {isSignUp ? (
-            <>
-              <div className="grid gap-4 md:grid-cols-2">
-                <AuthInput label="Full Name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" />
-                <AuthInput label="Email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="you@example.com" />
-                <AuthInput label="Password" type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} placeholder="Minimum 6 characters" />
-                <AuthInput label="Phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Optional" />
-                <AuthInput label="Location" value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} placeholder="Optional" />
-                <AuthInput label="Current Title" value={form.current_title} onChange={(event) => setForm((current) => ({ ...current, current_title: event.target.value }))} placeholder="Current role title" />
-              </div>
-              {role === "candidate" ? (
-                <>
-                  <AuthInput label="Target Title" value={form.target_title} onChange={(event) => setForm((current) => ({ ...current, target_title: event.target.value }))} placeholder="Target role title" />
-                  <label className="block cursor-pointer rounded-[1.2rem] border border-dashed border-white/12 bg-[#120f0d] px-4 py-4 transition hover:border-amber-300/30">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">Resume Upload</p>
-                    <p className="mt-2 text-sm text-stone-300">{resumeFile ? resumeFile.name : "Upload the resume attached to this candidate profile"}</p>
-                    <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(event) => setResumeFile(event.target.files?.[0] || null)} />
-                  </label>
-                </>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <AuthInput label="Email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="you@example.com" />
-              <AuthInput label="Password" type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} placeholder="Password" />
-            </>
-          )}
-
-          {error ? <div className="rounded-[1.2rem] border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div> : null}
-
-          <Motion.button
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.99 }}
-            type="button"
-            onClick={submit}
-            disabled={loading}
-            className="w-full rounded-[1.4rem] bg-amber-300 py-4 text-xs font-black uppercase tracking-[0.22em] text-stone-950 disabled:opacity-70"
-          >
-            {loading ? "Please Wait" : isSignUp ? "Create Account" : "Sign In"}
-          </Motion.button>
-        </div>
-      </Motion.section>
-    </div>
-  );
-}
-
-function DashboardShell({ session, setSession }) {
-  const [route, setRoute] = useState(readRoute());
-
-  useEffect(() => {
-    const onHashChange = () => setRoute(readRoute());
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
-
-  const api = useMemo(() => {
-    const token = session?.token || "";
-    return axios.create({
-      baseURL: API_BASE,
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-  }, [session?.token]);
-
-  const logout = async () => {
-    try {
-      if (session?.token) {
-        await api.post("/auth/logout");
-      }
-    } catch {
-      // Ignore logout failures and clear local session anyway.
-    }
-    window.localStorage.removeItem(SESSION_KEY);
-    setSession(null);
-    navigate("/signin");
-  };
-
-  const handleAuthError = () => {
-    window.localStorage.removeItem(SESSION_KEY);
-    setSession(null);
-    navigate("/signin");
-  };
-
-  const role = session?.user?.role || "candidate";
-  const dashboardRoute = role === "recruiter" ? "/recruiter" : "/candidate";
-
-  useEffect(() => {
-    if (route !== dashboardRoute) {
-      navigate(dashboardRoute);
-    }
-  }, [dashboardRoute, route]);
-
-  return (
-    <div className="min-h-screen px-6 py-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(31,23,18,0.95),rgba(18,14,11,0.92))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.24)] md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-500">ProRes Platform</p>
-            <h2 className="mt-2 text-2xl font-black text-white">{session?.user?.name || session?.user?.email}</h2>
-            <p className="mt-1 text-sm text-stone-400">{role === "recruiter" ? "Recruiter access: job posting, ranking, filtering, shortlisting" : "Candidate access: analysis, jobs, and applications"}</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-300">
-              {role}
-            </div>
-            <button
-              type="button"
-              onClick={logout}
-              className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-300 transition hover:text-white"
-            >
-              <LogOut size={13} className="mr-2 inline" />
-              Sign Out
-            </button>
-          </div>
-        </header>
-
-        <AnimatePresence mode="wait">
-          <Motion.div key={role} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-            {role === "recruiter" ? (
-              <RecruiterDashboard api={api} onAuthError={handleAuthError} />
-            ) : (
-              <CandidateDashboard session={session} setSession={setSession} api={api} onAuthError={handleAuthError} />
-            )}
-          </Motion.div>
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [route, setRoute] = useState(readRoute());
@@ -1565,21 +1194,15 @@ export default function App() {
 
   useEffect(() => {
     const restore = async () => {
-      const stored = window.localStorage.getItem(SESSION_KEY);
-      if (!stored) {
+      if (!window.localStorage.getItem(SESSION_KEY)) {
         setBooting(false);
         if (!["/signin", "/signup"].includes(readRoute())) navigate("/signin");
         return;
       }
 
       try {
-        const parsed = JSON.parse(stored);
-        const response = await axios.get(`${API_BASE}/auth/session`, {
-          headers: { Authorization: `Bearer ${parsed.token}` },
-        });
-        const auth = response.data.auth;
+        const auth = await restoreStoredSession();
         setSession(auth);
-        window.localStorage.setItem(SESSION_KEY, JSON.stringify(auth));
         navigate(auth.user.role === "recruiter" ? "/recruiter" : "/candidate");
       } catch {
         window.localStorage.removeItem(SESSION_KEY);
@@ -1600,7 +1223,7 @@ export default function App() {
   if (booting) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
-        <div className={`${authCard} w-full max-w-xl text-center`}>
+        <div className={`${authCardClass} w-full max-w-xl text-center`}>
           <LoaderCircle className="mx-auto animate-spin text-amber-300" size={28} />
           <p className="mt-4 text-sm text-stone-300">Restoring your secure session and role-aware workspace...</p>
         </div>
@@ -1609,7 +1232,18 @@ export default function App() {
   }
 
   if (session) {
-    return <DashboardShell session={session} setSession={setSession} />;
+    return (
+      <DashboardShell
+        session={session}
+        setSession={setSession}
+        candidateView={({ api, onAuthError }) => (
+          <CandidateDashboard session={session} setSession={setSession} api={api} onAuthError={onAuthError} />
+        )}
+        recruiterView={({ api, onAuthError }) => (
+          <RecruiterDashboard api={api} onAuthError={onAuthError} />
+        )}
+      />
+    );
   }
 
   const safeRoute = route === "/signup" ? "/signup" : "/signin";
