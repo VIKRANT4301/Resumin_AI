@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import jsPDF from "jspdf";
 import {
   ArrowUpRight,
+  Bookmark,
+  BookmarkCheck,
   BookOpen,
   Briefcase,
+  CircleHelp,
   CheckCircle2,
   ChevronDown,
   Download,
@@ -11,20 +14,22 @@ import {
   FileStack,
   Flame,
   Gauge,
+  GraduationCap,
   GitBranch,
   Layers3,
+  LineChart,
   Mail,
   MapPin,
+  Rocket,
   ShieldCheck,
   Sparkles,
   Target,
-  TrendingUp,
   UserRoundSearch,
   XCircle,
 } from "lucide-react";
 import SkillChart from "./SkillChart";
 
-function MetricCard({ label, value, subtext = "", tone = "default" }) {
+const MetricCard = memo(function MetricCard({ label, value, subtext = "", tone = "default" }) {
   const toneClasses = {
     default: "border-white/8 bg-white/[0.03] text-white",
     good: "border-emerald-500/15 bg-emerald-500/8 text-emerald-50",
@@ -34,19 +39,19 @@ function MetricCard({ label, value, subtext = "", tone = "default" }) {
   };
 
   return (
-    <div className={`rounded-[1.8rem] border p-5 shadow-[0_10px_34px_rgba(0,0,0,0.14)] ${toneClasses[tone]}`}>
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">{label}</p>
+    <div className={`rounded-3xl border p-5 shadow-sm transition-all hover:shadow-md ${toneClasses[tone]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">{label}</p>
       <p className="mt-3 text-3xl font-black">{value}</p>
       {subtext ? <p className="mt-2 text-xs leading-5 text-stone-400">{subtext}</p> : null}
     </div>
   );
-}
+});
 
-function SectionCard({ title, icon: Icon, children, aside = null }) {
+const SectionCard = memo(function SectionCard({ title, icon: Icon, children, aside = null }) {
   return (
-    <section className="rounded-[2.2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(25,19,15,0.95),rgba(20,15,12,0.9))] p-6 shadow-[0_16px_44px_rgba(0,0,0,0.2)]">
+    <section className="rounded-3xl border border-white/8 bg-[#120f0d] p-6 shadow-md">
       <div className="mb-5 flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-stone-400">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
           {Icon ? <Icon size={15} /> : null}
           {title}
         </div>
@@ -55,9 +60,9 @@ function SectionCard({ title, icon: Icon, children, aside = null }) {
       {children}
     </section>
   );
-}
+});
 
-function TagGrid({ items, emptyText, tone = "default" }) {
+const TagGrid = memo(function TagGrid({ items, emptyText, tone = "default" }) {
   const toneClasses = {
     default: "border-white/10 bg-white/[0.04] text-stone-200",
     success: "border-emerald-500/15 bg-emerald-500/8 text-emerald-100",
@@ -75,16 +80,16 @@ function TagGrid({ items, emptyText, tone = "default" }) {
       {items.map((item, index) => (
         <span
           key={`${item}-${index}`}
-          className={`rounded-full border px-3 py-2 text-xs font-bold ${toneClasses[tone]}`}
+          className={`rounded-full border px-3 py-2 text-xs font-bold transition hover:opacity-80 hover:-translate-y-0.5 ${toneClasses[tone]}`}
         >
           {item}
         </span>
       ))}
     </div>
   );
-}
+});
 
-function InsightList({ items, emptyText, tone = "accent" }) {
+const InsightList = memo(function InsightList({ items, emptyText, tone = "accent" }) {
   const tones = {
     accent: "border-cyan-500/15 bg-cyan-500/8 text-cyan-50",
     success: "border-emerald-500/15 bg-emerald-500/8 text-emerald-50",
@@ -97,101 +102,85 @@ function InsightList({ items, emptyText, tone = "accent" }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {items.map((item, index) => (
-        <div key={`${item}-${index}`} className={`rounded-[1.5rem] border p-4 text-sm leading-6 ${tones[tone]}`}>
+        <div key={`${item}-${index}`} className={`rounded-xl border p-4 text-sm leading-6 transition hover:shadow-sm ${tones[tone]}`}>
           {item}
         </div>
       ))}
     </div>
   );
-}
+});
 
-function AnimatedScoreRing({ score, label, breakdown = [], verdict }) {
-  const [displayScore, setDisplayScore] = useState(0);
-
-  useEffect(() => {
-    const duration = 900;
-    const start = performance.now();
-    let raf = 0;
-
-    const tick = (time) => {
-      const progress = Math.min((time - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayScore(Math.round(score * eased));
-      if (progress < 1) {
-        raf = window.requestAnimationFrame(tick);
-      }
-    };
-
-    raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
-  }, [score]);
-
+const AnimatedScoreRing = memo(function AnimatedScoreRing({ score, label, breakdown = [], verdict }) {
   const radius = 62;
   const circumference = 2 * Math.PI * radius;
+
+  const displayScore = React.useMemo(() => isNaN(score) ? 0 : Math.round(Number(score)), [score]);
   const offset = circumference - (displayScore / 100) * circumference;
 
+  const ringColor = displayScore >= 80 ? "#4cc890" : displayScore >= 60 ? "#f5bd4e" : "#f66f7b";
+
   return (
-    <div className="relative overflow-hidden rounded-[2.2rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(89,208,222,0.14),transparent_35%),linear-gradient(180deg,rgba(18,15,13,0.96),rgba(11,10,9,0.92))] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-      <div className="absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent)]" />
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative mx-auto grid h-[180px] w-[180px] place-items-center lg:mx-0">
-          <svg viewBox="0 0 160 160" className="h-full w-full -rotate-90">
-            <circle cx="80" cy="80" r={radius} fill="transparent" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
-            <circle
-              cx="80"
-              cy="80"
-              r={radius}
-              fill="transparent"
-              stroke={score >= 80 ? "#4cc890" : score >= 60 ? "#f5bd4e" : "#f66f7b"}
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              style={{ transition: "stroke-dashoffset 160ms linear" }}
-            />
-          </svg>
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="text-center">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-stone-500">Semantic Fit</p>
-              <p className="mt-2 text-5xl font-black text-white">{displayScore}%</p>
-              <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">{label}</p>
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#141414] p-6 shadow-lg">
+      <div className="space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-stone-300">
+            <Gauge size={13} className="mr-2" />
+            {verdict?.label || "Match"}
+          </div>
+          <p className="max-w-[210px] text-right text-xs leading-5 text-stone-400">Composite fit signal using skills, execution history, and relevance.</p>
+        </div>
+
+        <div className="grid place-items-center rounded-[1.6rem] border border-white/8 bg-white/[0.03] p-5">
+          <div className="relative grid h-[210px] w-full max-w-[210px] place-items-center">
+            <svg viewBox="0 0 160 160" className="h-full w-full -rotate-90">
+              <circle cx="80" cy="80" r={radius} fill="transparent" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
+              <circle
+                cx="80"
+                cy="80"
+                r={radius}
+                fill="transparent"
+                stroke={ringColor}
+                strokeWidth="12"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)" }}
+              />
+            </svg>
+            <div className="absolute inset-0 grid place-items-center text-center">
+              <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Semantic Fit</p>
+              <p className="mt-2 text-6xl font-black text-white">{displayScore}%</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-widest text-cyan-200">{label}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1">
-          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-stone-300">
-            <Gauge size={13} className="mr-2" />
-            {verdict?.label || "Match"}
-          </div>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-stone-300">
-            This score blends semantic skill alignment, visible execution history, and project relevance rather than raw keyword overlap.
-          </p>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {breakdown.map((item, index) => (
-              <div
-                key={item.label}
-                className="animate-fade-up rounded-[1.4rem] border border-white/8 bg-white/[0.04] p-4"
-                style={{ animationDelay: `${index * 80}ms` }}
-              >
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">{item.label}</p>
-                <p className="mt-2 text-2xl font-black text-white">{item.value}%</p>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,#59d0de,#f5bd4e)] transition-all duration-700"
-                    style={{ width: `${Math.max(8, item.value)}%` }}
-                  />
-                </div>
+        <div className="space-y-3">
+          {breakdown.map((item, index) => (
+            <div
+              key={item.label}
+              className="animate-fade-up rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">{item.label}</p>
+                <p className="text-sm font-black text-white">{item.value}%</p>
               </div>
-            ))}
-          </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-amber-400 transition-all duration-700"
+                  style={{ width: `${Math.max(8, item.value)}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-}
+});
 
 function SkillConstellation({ groups }) {
   const direct = groups.find((group) => group.label === "Direct Matches")?.items || [];
@@ -268,9 +257,8 @@ function FullStackSkillMap({ groups, edges }) {
                     <span
                       key={`${group.label}-${item.skill}`}
                       title={item.evidence}
-                      className={`rounded-full border px-3 py-2 text-xs font-bold ${toneFor(group.label)} ${
-                        item.intensity === "strong" ? "shadow-[0_0_18px_rgba(89,208,222,0.16)]" : ""
-                      }`}
+                      className={`rounded-full border px-3 py-2 text-xs font-bold ${toneFor(group.label)} ${item.intensity === "strong" ? "shadow-[0_0_18px_rgba(89,208,222,0.16)]" : ""
+                        }`}
                     >
                       {item.skill}
                     </span>
@@ -418,11 +406,10 @@ function BlueprintTabs({ groups }) {
             key={group.label}
             type="button"
             onClick={() => setActive(group.label)}
-            className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${
-              current?.label === group.label
+            className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${current?.label === group.label
                 ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-100"
                 : "border-white/8 bg-white/[0.03] text-stone-400 hover:text-white"
-            }`}
+              }`}
           >
             {group.label}
           </button>
@@ -518,6 +505,187 @@ function InterviewQuestionCards({ groups }) {
   );
 }
 
+function ActionableRecommendation({ item }) {
+  const [copied, setCopied] = useState(false);
+  const [variant, setVariant] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(variant || item);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRewrite = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setVariant(`[A/B Variant]: To excel in this target, proactively expand your scope on ${String(item).split(' ').slice(0,4).join(' ')}... Ensure you track metrics like latency, engagement, or scale to prove impact.`);
+      setLoading(false);
+    }, 800);
+  };
+
+  return (
+    <div className="rounded-[1.3rem] border border-cyan-500/20 bg-cyan-500/10 p-4 transition-all">
+      <p className="text-sm leading-6 text-cyan-50">{variant || item}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={handleRewrite} disabled={loading} className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-white/5 border border-white/10 rounded-full text-stone-300 hover:bg-white/10 transition">
+           {loading ? "Generating..." : "Generate Custom Bullet"}
+        </button>
+        <button type="button" onClick={handleCopy} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border rounded-full transition ${copied ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-200 hover:bg-cyan-500/20'}`}>
+           {copied ? "Copied!" : "Copy to Clipboard"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function inferRoleTrack(displayJobRole = "", requiredSkills = []) {
+  const combined = `${displayJobRole} ${(requiredSkills || []).join(" ")}`.toLowerCase();
+  if (/full[\s-]?stack|frontend.*backend|backend.*frontend/.test(combined)) return "Full Stack";
+  if (/front[\s-]?end|react|next|ui|ux|typescript|javascript/.test(combined)) return "Frontend";
+  if (/back[\s-]?end|node|api|python|java|golang|microservice|database/.test(combined)) return "Backend";
+  if (/ml|machine learning|ai|nlp|llm|data science|tensorflow|pytorch/.test(combined)) return "ML";
+  return "Software";
+}
+
+function inferCandidateLevel(resume = {}, displayJobRole = "") {
+  const experienceEntries = Array.isArray(resume?.experience) ? resume.experience.length : 0;
+  const role = `${displayJobRole || ""}`.toLowerCase();
+  if (/lead|principal|staff|architect|head/.test(role) || experienceEntries >= 5) return "Senior";
+  if (/intern|junior|entry|associate/.test(role) || experienceEntries <= 1) return "Beginner";
+  return "Mid";
+}
+
+function roleAwareImprovementText(roleTrack, skill, weakness = "") {
+  const skillLabel = skill || "this capability";
+  const reason = weakness || `Evidence for ${skillLabel} is currently thin`;
+  if (roleTrack === "Frontend") {
+    return `${reason}. Your ${skillLabel} examples should connect technical execution to measurable UI impact such as Core Web Vitals improvement, conversion lift, or reduced bounce.`;
+  }
+  if (roleTrack === "Backend") {
+    return `${reason}. Show API reliability, latency reduction, throughput, or cost optimizations so hiring teams can map your backend work to production outcomes.`;
+  }
+  if (roleTrack === "Full Stack") {
+    return `${reason}. Frame end-to-end ownership across frontend, backend, and deployment outcomes to prove full-cycle delivery at scale.`;
+  }
+  if (roleTrack === "ML") {
+    return `${reason}. Add model quality, business impact, and deployment constraints to show that your ML work goes beyond experimentation.`;
+  }
+  return `${reason}. Add clear scope, ownership, and measurable outcomes to strengthen recruiter confidence.`;
+}
+
+function sanitizeImprovementItems(items = [], roleTrack, missingSkills = [], weaknesses = []) {
+  const genericPattern = /no explicit metric provided|outcome should be quantified|not provided|not captured|insight unavailable/i;
+  const normalized = (items || [])
+    .map((item, index) => {
+      if (!item) return null;
+      const raw = typeof item === "string" ? item : item.upgrade_tip || item.project_idea || item.skill || "";
+      if (!raw) return null;
+      if (!genericPattern.test(raw)) return raw;
+      const skill = missingSkills[index] || missingSkills[0] || "project impact";
+      return roleAwareImprovementText(roleTrack, skill, weaknesses[index] || "");
+    })
+    .filter(Boolean);
+
+  if (normalized.length) return normalized;
+  return (missingSkills || []).slice(0, 4).map((skill, index) => roleAwareImprovementText(roleTrack, skill, weaknesses[index] || ""));
+}
+
+function normalizeUrl(url = "") {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
+
+function buildPreparationHubItems({ prepLinks = [], roleTrack, level, missingSkills = [], weaknesses = [] }) {
+  const roleResources = {
+    Frontend: {
+      roadmap: "https://roadmap.sh/frontend",
+      official: [{ title: "React Official Docs", url: "https://react.dev" }, { title: "MDN Web Performance", url: "https://developer.mozilla.org/en-US/docs/Web/Performance" }],
+      practical: [{ title: "Frontend Mentor Challenges", url: "https://www.frontendmentor.io/challenges" }, { title: "Awesome React Projects", url: "https://github.com/enaqx/awesome-react" }],
+      interview: [{ title: "Frontend Interview Handbook", url: "https://www.frontendinterviewhandbook.com" }, { title: "GreatFrontEnd Practice", url: "https://www.greatfrontend.com" }],
+      portfolio: [{ title: "Frontend Portfolio Inspiration", url: "https://www.frontendmentor.io/showcase" }, { title: "Open Source Frontend Projects", url: "https://github.com/trending/javascript" }],
+      market: [{ title: "Web Dev Hiring Trends (Stack Overflow)", url: "https://survey.stackoverflow.co" }, { title: "Levels.fyi Benchmarking", url: "https://www.levels.fyi" }],
+    },
+    Backend: {
+      roadmap: "https://roadmap.sh/backend",
+      official: [{ title: "REST API Design Guide", url: "https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design" }, { title: "PostgreSQL Docs", url: "https://www.postgresql.org/docs/" }],
+      practical: [{ title: "System Design Primer", url: "https://github.com/donnemartin/system-design-primer" }, { title: "Backend Challenges", url: "https://github.com/florinpop17/app-ideas" }],
+      interview: [{ title: "ByteByteGo", url: "https://bytebytego.com" }, { title: "Excalidraw System Design", url: "https://www.youtube.com/@SystemDesignInterview" }],
+      portfolio: [{ title: "Real-world API Portfolio Examples", url: "https://github.com/public-apis/public-apis" }, { title: "Production Backend Repos", url: "https://github.com/trending/go" }],
+      market: [{ title: "GitHub Octoverse", url: "https://octoverse.github.com" }, { title: "Tech Hiring Benchmarks", url: "https://www.levels.fyi" }],
+    },
+    "Full Stack": {
+      roadmap: "https://roadmap.sh/full-stack",
+      official: [{ title: "Next.js Docs", url: "https://nextjs.org/docs" }, { title: "Node.js Docs", url: "https://nodejs.org/en/docs" }],
+      practical: [{ title: "The Odin Project", url: "https://www.theodinproject.com/paths/full-stack-javascript" }, { title: "App Ideas Collection", url: "https://github.com/florinpop17/app-ideas" }],
+      interview: [{ title: "Tech Interview Handbook", url: "https://www.techinterviewhandbook.org" }, { title: "System Design Primer", url: "https://github.com/donnemartin/system-design-primer" }],
+      portfolio: [{ title: "Full-stack Portfolio Examples", url: "https://www.theodinproject.com/success_stories" }, { title: "Production-grade Full-stack Repos", url: "https://github.com/trending/typescript" }],
+      market: [{ title: "Stack Overflow Survey", url: "https://survey.stackoverflow.co" }, { title: "Hiring Market Benchmarks", url: "https://www.levels.fyi" }],
+    },
+    ML: {
+      roadmap: "https://roadmap.sh/ai-data-scientist",
+      official: [{ title: "PyTorch Docs", url: "https://pytorch.org/docs/stable/index.html" }, { title: "scikit-learn User Guide", url: "https://scikit-learn.org/stable/user_guide.html" }],
+      practical: [{ title: "Papers with Code", url: "https://paperswithcode.com" }, { title: "Made With ML", url: "https://madewithml.com" }],
+      interview: [{ title: "ML Interview Book", url: "https://huyenchip.com/ml-interviews-book/" }, { title: "Designing ML Systems", url: "https://www.oreilly.com/library/view/designing-machine-learning/9781098107956/" }],
+      portfolio: [{ title: "Kaggle Portfolio Showcase", url: "https://www.kaggle.com/code" }, { title: "ML Open Source Projects", url: "https://github.com/trending/jupyter-notebook" }],
+      market: [{ title: "AI Index Report", url: "https://aiindex.stanford.edu/report/" }, { title: "Kaggle State of ML", url: "https://www.kaggle.com" }],
+    },
+    Software: {
+      roadmap: "https://roadmap.sh/full-stack",
+      official: [{ title: "Engineering Career Frameworks", url: "https://staffeng.com/guides" }],
+      practical: [{ title: "Real World Engineering Challenges", url: "https://github.com/codecrafters-io/build-your-own-x" }],
+      interview: [{ title: "Tech Interview Handbook", url: "https://www.techinterviewhandbook.org" }],
+      portfolio: [{ title: "Engineering Portfolio Examples", url: "https://github.com/karan/Projects" }],
+      market: [{ title: "Developer Trends", url: "https://survey.stackoverflow.co" }],
+    },
+  };
+
+  const catalog = roleResources[roleTrack] || roleResources.Software;
+  const targets = (missingSkills.length ? missingSkills : ["impact storytelling", "system depth", "interview narratives"]).slice(0, 4);
+
+  return targets.map((skill, index) => {
+    const prepForSkill = prepLinks.find((item) => item.skill === skill || item.label === skill);
+    const prepResources = (prepForSkill?.resources || []).map((resource) => ({
+      title: resource.title,
+      url: normalizeUrl(resource.url),
+      category: "Practical Learning",
+    }));
+
+    const weaknessHint = weaknesses[index] || "";
+    const dedupeByUrl = (list) => {
+      const seen = new Set();
+      return list.filter((entry) => {
+        const key = normalizeUrl(entry.url || "");
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+
+    const official = dedupeByUrl([...catalog.official]).map((item) => ({ ...item, category: "Official Learning" }));
+    const practical = dedupeByUrl([...catalog.practical, ...prepResources]).slice(0, 4).map((item) => ({ ...item, category: "Practical Learning" }));
+    const interview = dedupeByUrl([...catalog.interview]).map((item) => ({ ...item, category: "Interview Preparation" }));
+    const portfolio = dedupeByUrl([...(catalog.portfolio || [])]).map((item) => ({ ...item, category: "Portfolio Resources" }));
+    const market = dedupeByUrl([...catalog.market]).map((item) => ({ ...item, category: "Market Alignment" }));
+
+    const trackPlan = [
+      `Step 1: Follow the ${roleTrack} roadmap checkpoint for ${skill}.`,
+      `Step 2: Build one project proving ${skill} and publish with measurable impact.`,
+      `Step 3: Rehearse two interview stories focused on ${skill} tradeoffs and outcomes.`,
+    ];
+
+    return {
+      skill,
+      urgency: index < 2 ? "High Priority" : "Medium Priority",
+      whyItMatters: weaknessHint || `Hiring panels for ${roleTrack} roles evaluate ${skill} as a decision signal for ${level.toLowerCase()} candidates.`,
+      roadmapUrl: catalog.roadmap,
+      trackPlan,
+      resources: [...official, ...practical, ...interview, ...portfolio, ...market],
+    };
+  });
+}
+
 function getVerdict(score) {
   if (score >= 90) {
     return {
@@ -572,65 +740,12 @@ function normalizeEvidenceCards(feedback, fallbackEvidence) {
   return structured.length ? structured : fallbackEvidence;
 }
 
-function normalizeBlueprint(feedback, requiredSkills) {
-  const blueprint = feedback?.role_skill_blueprint || {};
-  if (
-    blueprint?.core_skills?.length ||
-    blueprint?.supporting_skills?.length ||
-    blueprint?.advanced_optional_skills?.length ||
-    blueprint?.adjacent_skills?.length ||
-    blueprint?.irrelevant_or_low_relevance_skills?.length ||
-    blueprint?.integration_skills?.length ||
-    blueprint?.supporting_tools?.length
-  ) {
-    return [
-      { label: "Core Skills", items: blueprint.core_skills || [] },
-      { label: "Integration Skills", items: blueprint.integration_skills || [] },
-      { label: "Supporting Tools", items: blueprint.supporting_tools || [] },
-      { label: "Adjacent Skills", items: blueprint.adjacent_skills || blueprint.supporting_skills || [] },
-      { label: "Advanced Skills", items: blueprint.advanced_optional_skills || [] },
-      { label: "Low-Relevance Skills", items: blueprint.irrelevant_or_low_relevance_skills || [] },
-    ].filter((group) => group.items.length);
-  }
-
-  return requiredSkills?.length
-    ? [{ label: "Core Skills", items: requiredSkills.map((skill) => ({ skill, why_it_matters: "Direct requirement from the job description." })) }]
-    : [];
-}
-
 function normalizeStrengthSignals(feedback, strengths) {
   const structured = feedback?.strength_signals || [];
   if (structured.length) {
     return structured.map((item) => `${item.signal}: ${item.why_it_matters}`);
   }
   return strengths;
-}
-
-function semanticSections(feedback) {
-  const semantic = feedback?.semantic_skill_matching || {};
-  return [
-    { label: "Direct Matches", items: semantic.direct_matches || [] },
-    { label: "Inferred Matches", items: semantic.inferred_matches || [] },
-    { label: "Weak / Unproven", items: semantic.weak_unproven_matches || [] },
-  ].filter((group) => group.items.length);
-}
-
-function gapSections(feedback) {
-  const smart = feedback?.skill_gap_intelligence || {};
-  return [
-    { label: "Completely Missing", items: smart.completely_missing || [] },
-    { label: "Weak Evidence", items: smart.weak_evidence || [] },
-    { label: "Likely Known", items: smart.likely_known || [] },
-  ].filter((group) => group.items.length);
-}
-
-function toolSections(feedback) {
-  const filter = feedback?.tool_relevance_filter || {};
-  return [
-    { label: "Highly Relevant", items: filter.highly_relevant || [] },
-    { label: "Indirectly Relevant", items: filter.indirectly_relevant || [] },
-    { label: "Not Relevant", items: filter.not_relevant || [] },
-  ].filter((group) => group.items.length);
 }
 
 function _fullstackScoreCards(feedback) {
@@ -711,54 +826,158 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
   const weaknesses = isRagResult
     ? report?.cons || matchResult?.insights?.gaps || []
     : (feedback?.risk_signals || []).map((item) =>
-        typeof item === "string" ? item : `${item.title} (${item.severity}): ${item.explanation}`
-      );
+      typeof item === "string" ? item : `${item.title} (${item.severity}): ${item.explanation}`
+    );
   const improvementItems = isRagResult ? report?.improvements || matchResult?.insights?.recommendations || [] : feedback?.improvements || [];
   const conciseSummary = isRagResult
     ? report?.resume_summary || matchResult?.insights?.summary || matchResult?.match?.interpretation || ""
     : feedback?.candidate_summary || feedback?.summary || `Match score ${score}%`;
-  const whySuitable = isRagResult ? strengths.slice(0, 3) : feedback?.why_candidate_fits || data?.summary?.shortlist_reasons || strengths.slice(0, 3);
+  const roleTrack = inferRoleTrack(displayJobRole, requiredSkills);
+  const candidateLevel = inferCandidateLevel(resume, displayJobRole);
   const trainingFocus = improvementItems.length ? improvementItems : missingSkills.map((skill) => `Build applied evidence for ${skill}`);
+  const strategicTrainingFocus = sanitizeImprovementItems(trainingFocus, roleTrack, missingSkills, weaknesses);
   const prepLinks = feedback?.preparation_plan || [];
   const detailedPlan = feedback?.improvement_plan || {};
   const evidenceCards = normalizeEvidenceCards(feedback, compactEvidence(data?.skill_scores || {}));
-  const skillBlueprint = normalizeBlueprint(feedback, requiredSkills);
   const strengthSignals = normalizeStrengthSignals(feedback, strengths);
-  const semanticMatchGroups = semanticSections(feedback);
-  const smartGapGroups = gapSections(feedback);
-  const toolGroups = toolSections(feedback);
+  const interviewGroups = _interviewGroups(feedback);
   const upgradeIdeas = feedback?.additional_value_for_candidate || [];
   const missingCriticalSkills = summary?.missing_critical_skills || data?.deal_breakers?.filter((item) => item.type === "missing_required_skill").map((item) => item.skill) || [];
-  const whyScoreItems = [
-    `${summary?.exact_match_count ?? 0} exact matches strengthen score confidence.`,
-    missingCriticalSkills.length
-      ? `${missingCriticalSkills.length} critical skills are still missing: ${missingCriticalSkills.slice(0, 3).join(", ")}.`
-      : "No critical skill blockers were detected.",
-    `Experience confidence is ${Math.round(Number(summary?.experience_confidence_score ?? 0))}% with recency score ${Math.round(Number(summary?.recency_score ?? 0))}%.`,
-  ];
-  const reliability = summary?.reliability_metrics || {};
   const verdict = getVerdict(score);
+  const recruiterVerdict = score >= 75 ? "Strong Match" : score >= 60 ? "Moderate Match" : "Risky Match";
   const scoreBreakdown = [
     { label: "Core Skills Match", value: Math.round(skillsMatchPercent) },
     { label: "Experience Match", value: Math.round(Number(summary?.experience_score ?? data?.summary?.experience_score ?? 0)) },
     { label: "Project Relevance", value: Math.round(Number(summary?.project_relevance_percent ?? data?.summary?.project_relevance_percent ?? 0)) },
   ];
+  const oneLineRankingSummary = [
+    matchedSkills.length ? `Strong alignment in ${matchedSkills.slice(0, 2).join(" and ")}` : "Limited direct skill overlap",
+    missingSkills.length ? `gap in ${missingSkills.slice(0, 2).join(" / ")}` : "minimal critical skill gaps",
+  ].join("; ");
+  const preparationHubItems = buildPreparationHubItems({
+    prepLinks,
+    roleTrack,
+    level: candidateLevel,
+    missingSkills,
+    weaknesses,
+  });
+  const capabilityScores = {
+    technical: Math.round(skillsMatchPercent),
+    execution: Math.round(Number(summary?.experience_score ?? data?.summary?.experience_score ?? 0)),
+    ownership: Math.min(100, Math.round(evidenceCards.length * 18 + strengthSignals.length * 8 + (detailedPlan?.weekly_plan?.length ? 12 : 0))),
+    collaboration: Math.min(
+      100,
+      Math.round(
+        40 +
+        strengthSignals.filter((item) => /team|collabor|stakeholder|cross-functional|mento/i.test(item)).length * 18
+      )
+    ),
+  };
+  const learningCurveEstimate =
+    missingSkills.length <= 1
+      ? "Fast ramp (2-4 weeks)"
+      : missingSkills.length <= 3
+        ? "Moderate ramp (4-8 weeks)"
+        : "High ramp (8+ weeks)";
 
-  const documentStats = resume?._document_stats || {
-    skills: extractedSkills.length,
-    experience_entries: Array.isArray(resume?.experience) ? resume.experience.length : 0,
-    education_entries: Array.isArray(resume?.education) ? resume.education.length : 0,
-    project_entries: Array.isArray(resume?.projects) ? resume.projects.length : 0,
-    certifications: Array.isArray(resume?.certifications) ? resume.certifications.length : 0,
+  const classifyRiskSeverity = (text = "") => {
+    if (/critical|missing|no|lack|risk|blocker|suspicion|inconsistent|overclaim/i.test(text)) return "High";
+    if (/limited|moderate|partial|weak|improve/i.test(text)) return "Medium";
+    return "Low";
+  };
+  const riskSignals = [
+    ...missingCriticalSkills.map((skill) => ({ label: `Missing critical skill: ${skill}`, severity: "High" })),
+    ...weaknesses.map((item) => ({ label: item, severity: classifyRiskSeverity(item) })),
+  ].slice(0, 6);
+
+  const skillGapIntelligence = (missingSkills.length ? missingSkills : missingCriticalSkills)
+    .slice(0, 6)
+    .map((skill, index) => {
+      const related = matchedSkills.find((candidateSkill) => candidateSkill?.[0]?.toLowerCase() === skill?.[0]?.toLowerCase()) || matchedSkills[index] || "No clear substitute signal";
+      const difficulty = related === "No clear substitute signal" ? "High" : "Moderate";
+      return {
+        skill,
+        substitute: related,
+        difficulty,
+        priority: index < 2 ? "P1" : index < 4 ? "P2" : "P3",
+      };
+    });
+
+  const strategicRecommendations = [
+    ...strategicTrainingFocus,
+    ...upgradeIdeas.map((item) => `${item.area}: ${item.action}`),
+  ].slice(0, 8);
+
+  const interviewReadinessItems = [
+    ...interviewGroups.flatMap((group) => group.items.slice(0, 2).map((item) => `${item.question} — ${item.expectation}`)),
+    ...riskSignals.slice(0, 2).map((risk) => `Address likely concern: ${risk.label}`),
+  ].slice(0, 6);
+
+  const marketReadiness = {
+    startupAlignment: Math.min(100, Math.round((capabilityScores.technical * 0.45 + capabilityScores.execution * 0.3 + capabilityScores.ownership * 0.25))),
+    enterpriseAlignment: Math.min(100, Math.round((capabilityScores.technical * 0.35 + capabilityScores.execution * 0.4 + capabilityScores.collaboration * 0.25))),
   };
 
-  const parsedProfileRows = [
-    { label: "Skills", value: documentStats.skills || extractedSkills.length || 0 },
-    { label: "Experience", value: documentStats.experience_entries || 0 },
-    { label: "Projects", value: documentStats.project_entries || 0 },
-    { label: "Education", value: documentStats.education_entries || 0 },
-    { label: "Certifications", value: documentStats.certifications || 0 },
+  const hiddenIntelligence = [
+    capabilityScores.technical > capabilityScores.execution
+      ? "Candidate appears stronger in technical implementation than scaled execution history."
+      : "Execution signals are relatively strong and can support production-delivery roles.",
+    roleTrack === "Full Stack" && missingSkills.length > 2
+      ? "Candidate may deliver faster in frontend-specialized roles before broad full-stack responsibilities."
+      : `Candidate profile aligns best with ${roleTrack.toLowerCase()}-leaning responsibilities in the near term.`,
+    missingSkills.length
+      ? `High-impact upside exists if ${missingSkills.slice(0, 2).join(" and ")} evidence is improved with measurable outcomes.`
+      : "Profile is near-market ready; differentiation now depends on stronger portfolio proof and quantified impact.",
+    `Parser extracted ${extractedSkills.length} skills from the resume, which ${extractedSkills.length >= 12 ? "supports broader role flexibility." : "suggests room to improve keyword and evidence coverage."}`,
   ];
+
+  // ── NEW: AI Intelligence fields from upgraded feedback ───────────────────────────────
+  const aiExec = feedback?.executive_snapshot || {};
+  const aiCareer = feedback?.career_trajectory || {};
+  const aiBullets = feedback?.bullet_transformation_engine || [];
+  const aiObjections = feedback?.recruiter_objection_simulator || [];
+  const aiSkillGaps = feedback?.skill_gap_intelligence || [];
+  const aiCoverage = feedback?.skill_coverage_map || {};
+  const aiAcceleration = feedback?.hirable_acceleration || {};
+  const aiPrep = feedback?.preparation_hub || feedback?.preparation_hub_2 || [];
+  const aiMarket = feedback?.market_positioning || {};
+
+  const atsScore = Math.round(
+    Number(aiExec.ats_score ?? aiCoverage.ats_match_percent ?? summary?.ats_score ?? 0)
+  );
+  const interviewReadiness = Math.round(
+    Number(aiExec.interview_readiness_score ?? summary?.interview_readiness_score ?? 0)
+  );
+  const marketTier = aiExec.market_tier || "";
+  const oneLineVerdict = aiExec.one_line_verdict || "";
+  const archetype = aiExec.candidate_archetype || "";
+  const hiringVelocity = aiExec.hiring_velocity || "";
+  const impressionScore = Math.round(Number(aiExec.recruiter_first_impression_score || 0));
+  const credibilityScore = Math.round(Number(aiExec.resume_credibility_score || 0));
+  const aiTopStrengths = aiExec.top_3_strengths || [];
+  const aiTopRisks = aiExec.top_3_risks || [];
+
+  const mktTierColor = {
+    "Premium Hireable": "border-emerald-400/30 bg-emerald-500/12 text-emerald-100",
+    "Strong": "border-cyan-400/30 bg-cyan-500/12 text-cyan-100",
+    "Competitive": "border-sky-400/30 bg-sky-500/12 text-sky-100",
+    "Emerging": "border-amber-400/30 bg-amber-500/12 text-amber-100",
+    "Underprepared": "border-rose-400/30 bg-rose-500/12 text-rose-100",
+  }[marketTier] || "border-white/10 bg-white/[0.04] text-stone-200";
+
+  const marketPositioningBars = [
+    { label: "Startup", key: "startup_readiness" },
+    { label: "Enterprise", key: "enterprise_readiness" },
+    { label: "Product", key: "product_readiness" },
+    { label: "Remote / Global", key: "remote_global_readiness" },
+    { label: "Freelance", key: "freelance_readiness" },
+    { label: "Leadership", key: "leadership_readiness" },
+  ].map(({ label, key }) => ({
+    label,
+    score: Math.round(Number(aiMarket[key]?.score || 0)),
+    blocker: aiMarket[key]?.blocker || "",
+    why: aiMarket[key]?.why || "",
+  }));
 
   const downloadPDF = () => {
     const doc = new jsPDF();
@@ -777,52 +996,52 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
     doc.save(`${resume?.name || data?.candidate || "candidate"}_summary.pdf`);
   };
 
+
+
   return (
-    <div className="space-y-6">
-      <section className="rounded-[2.8rem] border border-white/8 bg-[linear-gradient(135deg,rgba(28,21,17,0.96),rgba(19,15,12,0.92))] p-8 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
+    <div className="mx-auto w-full max-w-[1700px] space-y-8 px-4 sm:px-6 xl:px-10">
+      <section className="rounded-[2.8rem] border border-white/8 bg-[linear-gradient(135deg,rgba(28,21,17,0.96),rgba(19,15,12,0.92))] p-5 sm:p-8 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-300">
               {mode === "candidate" ? "Candidate Match Report" : "Recruiter Review Report"}
             </p>
-            <h2 className="mt-3 font-display text-4xl font-black tracking-tight text-white md:text-5xl">
+            <h2 className="mt-3 font-display text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl">
               {data?.candidate || resume?.name || "Candidate"}
             </h2>
 
-            <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.16em] text-stone-400">
-              <span className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2">
+            <div className="mt-4 flex flex-wrap gap-2 sm:gap-3 text-xs font-bold uppercase tracking-[0.16em] text-stone-400">
+              <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 sm:px-4 py-2">
                 <Briefcase size={13} className="mr-2 inline" />
                 {displayJobRole}
               </span>
               {resume?.email ? (
-                <span className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2">
+                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 sm:px-4 py-2">
                   <Mail size={13} className="mr-2 inline" />
                   {resume.email}
                 </span>
               ) : null}
               {resume?.location ? (
-                <span className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2">
+                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 sm:px-4 py-2">
                   <MapPin size={13} className="mr-2 inline" />
                   {resume.location}
                 </span>
               ) : null}
             </div>
 
-            <div className={`mt-6 inline-flex rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] ${
-              verdict.tone === "good"
+            <div className={`mt-6 inline-flex rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] ${verdict.tone === "good"
                 ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
                 : verdict.tone === "warn"
                   ? "border border-amber-500/20 bg-amber-500/10 text-amber-100"
                   : "border border-rose-500/20 bg-rose-500/10 text-rose-100"
-            }`}>
+              }`}>
               {verdict.label}
             </div>
 
-            <p className="mt-4 text-sm leading-7 text-stone-300">{conciseSummary || verdict.text}</p>
-            <p className="mt-3 text-sm leading-7 text-stone-400">{verdict.text}</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300">{conciseSummary || verdict.text}</p>
           </div>
 
-          <div className="xl:w-[420px]">
+          <div className="w-full xl:w-[460px] 2xl:w-[500px] shrink-0">
             <AnimatedScoreRing score={Math.round(score)} label={score >= 75 ? "Strong Match" : score >= 60 ? "Moderate Match" : "Needs Improvement"} breakdown={scoreBreakdown} verdict={verdict} />
             <button
               type="button"
@@ -857,252 +1076,478 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <SectionCard title="Why This Score" icon={Gauge}>
-          <div className="space-y-3">
-            {whyScoreItems.map((item, index) => (
-              <div key={`${item}-${index}`} className="rounded-[1.4rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-stone-200">
-                {item}
+      {/* ── AI INTELLIGENCE COMMAND CENTER ───────────────────────────────────────────── */}
+      {(archetype || marketTier || atsScore > 0 || interviewReadiness > 0) ? (
+        <section className="relative overflow-hidden rounded-[2.2rem] border border-cyan-500/15 bg-[linear-gradient(135deg,rgba(14,18,30,0.97),rgba(12,16,26,0.96))] p-6 sm:p-8 shadow-[0_12px_48px_rgba(89,208,222,0.08)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(89,208,222,0.07),transparent_55%)]" />
+          <div className="relative">
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">
+                <Sparkles size={14} />
+                AI Intelligence Report
+              </div>
+              {marketTier ? (
+                <span className={`rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] ${mktTierColor}`}>
+                  {marketTier}
+                </span>
+              ) : null}
+              {hiringVelocity ? (
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-stone-300">
+                  <Rocket size={10} className="mr-1.5 inline" />{hiringVelocity}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Archetype + One-Line Verdict */}
+            {(archetype || oneLineVerdict) ? (
+              <div className="mb-6 rounded-[1.6rem] border border-white/8 bg-white/[0.03] p-5">
+                {archetype ? <p className="text-lg font-black text-white">{archetype}</p> : null}
+                {oneLineVerdict ? <p className="mt-2 text-sm leading-6 text-stone-300">{oneLineVerdict}</p> : null}
+              </div>
+            ) : null}
+
+            {/* 6-Score Intelligence Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-6">
+              {[
+                { label: "ATS Score", value: atsScore, icon: Target, good: 75, warn: 55 },
+                { label: "Interview Readiness", value: interviewReadiness, icon: UserRoundSearch, good: 70, warn: 50 },
+                { label: "Recruiter Impression", value: impressionScore, icon: Gauge, good: 75, warn: 55 },
+                { label: "Resume Credibility", value: credibilityScore, icon: ShieldCheck, good: 75, warn: 55 },
+                { label: "Skill Coverage", value: Math.round(Number(aiCoverage.semantic_match_percent || score)), icon: Layers3, good: 70, warn: 50 },
+                { label: "Differentiation", value: Math.round(Number(aiCoverage.differentiation_score || 0)), icon: ArrowUpRight, good: 65, warn: 45 },
+              ].map(({ label, value, icon: Icon, good, warn }) => {
+                const tone = value >= good ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-100" : value >= warn ? "border-amber-500/20 bg-amber-500/8 text-amber-50" : "border-rose-500/20 bg-rose-500/8 text-rose-100";
+                return (
+                  <div key={label} className={`rounded-[1.4rem] border p-4 ${tone}`}>
+                    <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] opacity-70 mb-2">
+                      <Icon size={12} />{label}
+                    </div>
+                    <p className="text-3xl font-black">{value}%</p>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-current opacity-60 transition-all duration-700" style={{ width: `${Math.max(4, value)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* AI Strengths + Risks */}
+            {(aiTopStrengths.length > 0 || aiTopRisks.length > 0) ? (
+              <div className="grid gap-4 sm:grid-cols-2 mb-6">
+                {aiTopStrengths.length > 0 ? (
+                  <div className="rounded-[1.6rem] border border-emerald-500/15 bg-emerald-500/6 p-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-3">
+                      <CheckCircle2 size={12} className="mr-2 inline" />AI-Detected Strengths
+                    </p>
+                    <div className="space-y-2">
+                      {aiTopStrengths.map((s, i) => (
+                        <div key={i} className="rounded-xl border border-emerald-500/12 bg-emerald-500/8 px-4 py-3 text-sm leading-5 text-emerald-50">{s}</div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {aiTopRisks.length > 0 ? (
+                  <div className="rounded-[1.6rem] border border-rose-500/15 bg-rose-500/6 p-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 mb-3">
+                      <XCircle size={12} className="mr-2 inline" />AI-Detected Risks
+                    </p>
+                    <div className="space-y-2">
+                      {aiTopRisks.map((r, i) => (
+                        <div key={i} className="rounded-xl border border-rose-500/12 bg-rose-500/8 px-4 py-3 text-sm leading-5 text-rose-50">{r}</div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── CAREER TRAJECTORY ────────────────────────────────────────────────────────── */}
+      {(aiCareer.current_level || aiCareer.fastest_path || aiCareer.salary_range_current) ? (
+        <section className="rounded-[1.9rem] border border-amber-500/15 bg-[linear-gradient(135deg,rgba(18,14,10,0.96),rgba(12,10,7,0.95))] p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300 mb-5">
+            <LineChart size={13} className="mr-2 inline" />Career Trajectory Intelligence
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Current Level", value: aiCareer.current_level || "—" },
+              { label: "Target Level", value: aiCareer.target_level || "—" },
+              { label: "Current Salary Range", value: aiCareer.salary_range_current || "—" },
+              { label: "Achievable Salary", value: aiCareer.salary_range_achievable || "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-[1.3rem] border border-white/8 bg-white/[0.03] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">{label}</p>
+                <p className="mt-2 text-sm font-black text-white">{value}</p>
               </div>
             ))}
           </div>
+          {aiCareer.fastest_path ? (
+            <div className="mt-4 rounded-[1.3rem] border border-amber-500/15 bg-amber-500/8 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300 mb-2">Fastest Path</p>
+              <p className="text-sm leading-6 text-amber-50">{aiCareer.fastest_path}</p>
+            </div>
+          ) : null}
+          {(aiCareer.promotion_blockers || []).length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {aiCareer.promotion_blockers.map((b, i) => (
+                <span key={i} className="rounded-full border border-rose-500/20 bg-rose-500/8 px-3 py-1.5 text-xs font-bold text-rose-100">{b}</span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* ── AI SKILL GAP INTELLIGENCE ─────────────────────────────────────────────────── */}
+      {aiSkillGaps.length > 0 ? (
+        <section className="rounded-[1.9rem] border border-white/8 bg-[#0e0c0a] p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-400 mb-5">
+            <Target size={13} className="mr-2 inline" />AI Skill Gap Intelligence
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {aiSkillGaps.slice(0, 6).map((gap, i) => {
+              const sevColor = gap.severity === "Critical" ? "border-rose-500/20 bg-rose-500/8" : gap.severity === "High" ? "border-amber-500/20 bg-amber-500/8" : "border-white/8 bg-white/[0.03]";
+              const sevText = gap.severity === "Critical" ? "text-rose-300" : gap.severity === "High" ? "text-amber-300" : "text-stone-300";
+              return (
+                <div key={i} className={`rounded-[1.4rem] border p-4 ${sevColor}`}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-sm font-black text-white">{gap.skill || gap.gap_type}</p>
+                    <span className={`text-[9px] font-black uppercase tracking-[0.16em] ${sevText}`}>{gap.severity}</span>
+                  </div>
+                  <p className="text-xs leading-5 text-stone-300 mb-2">{gap.why_recruiters_care || gap.how_it_affects_hiring}</p>
+                  {gap.exact_fix ? (
+                    <div className="mt-2 rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2 text-xs text-cyan-100">
+                      <span className="font-black text-cyan-300">Fix: </span>{gap.exact_fix}
+                      {gap.time_to_fix ? <span className="ml-2 opacity-60">({gap.time_to_fix})</span> : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── BULLET TRANSFORMATION ENGINE ─────────────────────────────────────────────── */}
+      {aiBullets.length > 0 ? (
+        <section className="rounded-[1.9rem] border border-white/8 bg-[#0c0b0a] p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-400 mb-5">
+            <BookOpen size={13} className="mr-2 inline" />Bullet Transformation Engine
+          </p>
+          <div className="space-y-4">
+            {aiBullets.slice(0, 4).map((bullet, i) => (
+              <div key={i} className="rounded-[1.4rem] border border-white/8 bg-white/[0.02] overflow-hidden">
+                <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/8">
+                  <div className="p-4">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">Before</p>
+                    <p className="text-sm leading-6 text-stone-400 line-through opacity-70">{bullet.before}</p>
+                  </div>
+                  <div className="p-4 bg-emerald-500/[0.04]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">After (AI Rewrite)</p>
+                    <p className="text-sm leading-6 text-emerald-50">{bullet.after}</p>
+                  </div>
+                </div>
+                {bullet.impact_change ? (
+                  <div className="border-t border-white/8 px-4 py-2.5">
+                    <p className="text-xs text-stone-400"><span className="font-black text-cyan-300">Impact: </span>{bullet.impact_change}</p>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── RECRUITER OBJECTION SIMULATOR ────────────────────────────────────────────── */}
+      {aiObjections.length > 0 ? (
+        <section className="rounded-[1.9rem] border border-amber-500/12 bg-[linear-gradient(135deg,rgba(14,10,6,0.97),rgba(10,8,5,0.97))] p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300 mb-5">
+            <CircleHelp size={13} className="mr-2 inline" />Recruiter Objection Simulator
+          </p>
+          <div className="space-y-3">
+            {aiObjections.slice(0, 4).map((obj, i) => {
+              const sev = obj.severity === "Dealbreaker" ? "border-rose-500/25 bg-rose-500/8" : obj.severity === "High" ? "border-amber-500/20 bg-amber-500/6" : "border-white/8 bg-white/[0.03]";
+              const badge = obj.severity === "Dealbreaker" ? "border-rose-500/30 bg-rose-500/15 text-rose-100" : obj.severity === "High" ? "border-amber-500/30 bg-amber-500/12 text-amber-100" : "border-white/10 bg-white/[0.04] text-stone-200";
+              return (
+                <div key={i} className={`rounded-[1.4rem] border p-4 ${sev}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+                    <p className="text-sm font-black text-white">{obj.concern}</p>
+                    <span className={`shrink-0 rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${badge}`}>{obj.severity}</span>
+                  </div>
+                  <div className="mt-2 rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-300 mb-1">Counter Strategy</p>
+                    <p className="text-xs leading-5 text-stone-200">{obj.counter_strategy}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── MARKET POSITIONING BARS ──────────────────────────────────────────────────── */}
+      {marketPositioningBars.some(b => b.score > 0) ? (
+        <section className="rounded-[1.9rem] border border-white/8 bg-[#0c0b09] p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-400 mb-5">
+            <FileStack size={13} className="mr-2 inline" />Market Positioning Readiness
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {marketPositioningBars.map(({ label, score: mScore, blocker, why }) => (
+              <div key={label} className="rounded-[1.3rem] border border-white/8 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-xs font-black text-stone-300">{label}</p>
+                  <span className={`text-sm font-black ${mScore >= 70 ? "text-emerald-300" : mScore >= 50 ? "text-amber-300" : "text-rose-300"}`}>{mScore}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/8 mb-2">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${mScore >= 70 ? "bg-emerald-400" : mScore >= 50 ? "bg-amber-400" : "bg-rose-400"}`}
+                    style={{ width: `${Math.max(4, mScore)}%` }}
+                  />
+                </div>
+                {blocker ? <p className="text-[10px] text-rose-300 leading-4"><span className="font-black">Blocker: </span>{blocker}</p> : null}
+                {why && !blocker ? <p className="text-[10px] text-stone-400 leading-4">{why}</p> : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-[1.9rem] border border-cyan-500/20 bg-cyan-500/8 p-5">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Match Verdict</p>
+        <div className="mt-3 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <p className="text-2xl font-black text-white">{recruiterVerdict}</p>
+            <p className="mt-2 text-sm leading-7 text-cyan-50">{oneLineRankingSummary}.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">Match Score</p>
+              <p className="mt-2 text-2xl font-black text-white">{Math.round(score)}%</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">Confidence</p>
+              <p className="mt-2 text-2xl font-black text-white">{Math.round(confidence * 100)}%</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Strength Signals" icon={Sparkles}>
+          <div className="space-y-3">
+            {(strengthSignals.length ? strengthSignals : strengths).slice(0, 6).map((item, index) => (
+              <div key={`${item}-${index}`} className="rounded-[1.3rem] border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <p className="text-sm leading-6 text-emerald-50">{item}</p>
+              </div>
+            ))}
+            <p className="text-xs leading-6 text-emerald-100/80">
+              Why this matters: strong architecture and delivery signals reduce onboarding risk and improve short-term team productivity.
+            </p>
+          </div>
         </SectionCard>
 
-        <SectionCard title="Reliability Snapshot" icon={ShieldCheck}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <MetricCard label="Precision@K" value={`${Math.round(Number(reliability.precision_at_1 ?? 0))}%`} subtext="Top-rank quality proxy" tone="accent" />
-            <MetricCard label="NDCG" value={`${Math.round(Number(reliability.ndcg ?? 0))}%`} subtext="Ranking consistency proxy" tone="accent" />
-            <MetricCard label="Skill Accuracy" value={`${Math.round(Number(reliability.skill_match_accuracy ?? 0))}%`} subtext="Role-skill alignment quality" tone="good" />
-            <MetricCard label="Exp. Confidence" value={`${Math.round(Number(reliability.experience_confidence ?? summary?.experience_confidence_score ?? 0))}%`} subtext="Date parsing confidence" tone="warn" />
+        <SectionCard title="Risk Signals" icon={XCircle}>
+          <div className="space-y-3">
+            {riskSignals.length ? riskSignals.map((item, index) => (
+              <div key={`${item.label}-${index}`} className="rounded-[1.3rem] border border-rose-500/20 bg-rose-500/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-rose-50">{item.label}</p>
+                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${item.severity === "High"
+                      ? "border border-rose-400/40 bg-rose-500/20 text-rose-100"
+                      : item.severity === "Medium"
+                        ? "border border-amber-400/40 bg-amber-500/20 text-amber-100"
+                        : "border border-cyan-400/40 bg-cyan-500/20 text-cyan-100"
+                    }`}>
+                    {item.severity}
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm leading-6 text-stone-400">No major risk signals were detected.</p>
+            )}
           </div>
         </SectionCard>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <div className="space-y-6">
-          <SectionCard
-            title="Parsed Resume Snapshot"
-            icon={FileStack}
-            aside={
-              <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">
-                Structured Extraction
-              </span>
-            }
-          >
-            <p className="mb-4 text-sm leading-6 text-stone-400">
-              The parser standardizes the resume before scoring, so recruiters and candidates can inspect what the system actually understood.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {parsedProfileRows.map((item) => (
-                <div key={item.label} className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">{item.label}</p>
-                  <p className="mt-2 text-2xl font-black text-white">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
+      <SectionCard title="Capability Snapshot" icon={Gauge}>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <MetricCard label="Technical" value={`${capabilityScores.technical}%`} subtext="Skill and stack alignment" tone="good" />
+          <MetricCard label="Execution" value={`${capabilityScores.execution}%`} subtext="Experience and delivery depth" tone="accent" />
+          <MetricCard label="Ownership" value={`${capabilityScores.ownership}%`} subtext="Initiative and scope signals" tone="warn" />
+          <MetricCard label="Collaboration" value={`${capabilityScores.collaboration}%`} subtext="Team and cross-functional evidence" tone="default" />
+          <MetricCard label="Learning Curve" value={learningCurveEstimate} subtext={`${candidateLevel} trajectory for ${roleTrack}`} tone="accent" />
+        </div>
+      </SectionCard>
 
-          <SectionCard title="Why This Candidate Fits" icon={ShieldCheck}>
-            <InsightList
-              items={whySuitable}
-              emptyText={mode === "candidate" ? "Fit rationale will appear after analysis." : "No recruiter-facing rationale was generated yet."}
-              tone="success"
-            />
-          </SectionCard>
-
-          <SectionCard title="Evidence Highlights" icon={ArrowUpRight}>
-            {evidenceCards.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {evidenceCards.map((item, index) => (
-                  <div
-                    key={`${item.skill}-${item.type}`}
-                    className="animate-fade-up rounded-[1.5rem] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-4"
-                    style={{ animationDelay: `${index * 90}ms` }}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-white/8 bg-[#120f0d] px-3 py-1 text-sm">
-                        {index % 3 === 0 ? "🚀" : index % 3 === 1 ? "📊" : "💡"}
-                      </span>
-                      <span className="rounded-full border border-emerald-500/18 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-100">
-                        {item.skill}
-                      </span>
-                      <span className="rounded-full border border-white/8 bg-[#120f0d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-stone-400">
-                        {item.type}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-stone-300">{item.evidence}</p>
-                  </div>
-                ))}
+      <SectionCard title="Evidence Highlights" icon={ArrowUpRight}>
+        {evidenceCards.length ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {evidenceCards.map((item, index) => (
+              <div key={`${item.skill}-${item.type}`} className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
+                <p className="text-sm font-black text-white">{item.skill}</p>
+                <p className="mt-2 text-sm leading-6 text-stone-300">{item.evidence}</p>
+                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.15em] text-cyan-200">
+                  {index % 2 ? "Experience Validation" : "Project Proof Point"}
+                </p>
               </div>
-            ) : (
-              <p className="text-sm leading-6 text-stone-500">Evidence snippets will appear when strong semantic matches are found.</p>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-stone-500">Evidence highlights will appear when resume-to-role matches are extracted.</p>
+        )}
+      </SectionCard>
+
+      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <SectionCard title="Skill Gap Intelligence" icon={Flame}>
+          <div className="space-y-3">
+            {skillGapIntelligence.length ? skillGapIntelligence.map((item) => (
+              <div key={item.skill} className="rounded-[1.3rem] border border-amber-500/20 bg-amber-500/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-black text-white">{item.skill}</p>
+                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-stone-200">
+                    {item.priority}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-stone-200">Substitute signal: {item.substitute}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-amber-100">Learning difficulty: {item.difficulty}</p>
+              </div>
+            )) : (
+              <p className="text-sm leading-6 text-stone-400">No high-priority skill gaps detected.</p>
             )}
-          </SectionCard>
+          </div>
+        </SectionCard>
 
-          {semanticMatchGroups.length ? (
-            <SectionCard title="Semantic Skill Matching" icon={GitBranch}>
-              <SkillConstellation groups={semanticMatchGroups} />
-            </SectionCard>
-          ) : null}
+        <SectionCard title="Strategic Recommendations (Interactive Action Board)" icon={Target}>
+          <div className="space-y-3">
+            {strategicRecommendations.length ? strategicRecommendations.map((item, index) => (
+              <ActionableRecommendation key={`${item}-${index}`} item={item} />
+            )) : (
+              <p className="text-sm leading-6 text-stone-400">Recommendations will populate as soon as role-specific gaps are detected.</p>
+            )}
+          </div>
+        </SectionCard>
+      </section>
 
-          <SectionCard title="Skill Coverage Map" icon={Target}>
-            <p className="mb-4 text-sm leading-6 text-stone-400">
-              Each job skill is matched against resume evidence. Strong fits, partial fits, and gaps are separated visually for faster review.
+      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <SectionCard title="Interview Readiness Intelligence" icon={UserRoundSearch}>
+          <div className="space-y-3">
+            {interviewReadinessItems.length ? interviewReadinessItems.map((item, index) => (
+              <div key={`${item}-${index}`} className="rounded-[1.3rem] border border-white/8 bg-white/[0.03] p-4">
+                <p className="text-sm leading-6 text-stone-200">{item}</p>
+              </div>
+            )) : (
+              <p className="text-sm leading-6 text-stone-400">Interview prompts and weak spots were not generated for this profile yet.</p>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Market Readiness" icon={LineChart}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <MetricCard
+              label="Startup Alignment"
+              value={`${marketReadiness.startupAlignment}%`}
+              subtext={`${marketReadiness.startupAlignment >= 75 ? "High" : "Moderate"} fit with fast-iteration role expectations`}
+              tone={marketReadiness.startupAlignment >= 75 ? "good" : "warn"}
+            />
+            <MetricCard
+              label="Enterprise Alignment"
+              value={`${marketReadiness.enterpriseAlignment}%`}
+              subtext={`${marketReadiness.enterpriseAlignment >= 75 ? "High" : "Moderate"} fit with structured delivery environments`}
+              tone={marketReadiness.enterpriseAlignment >= 75 ? "good" : "warn"}
+            />
+          </div>
+          <p className="mt-3 text-sm leading-6 text-stone-300">
+            Hiring readiness level: {Math.round((marketReadiness.startupAlignment + marketReadiness.enterpriseAlignment) / 2)}% composite across market expectations.
+          </p>
+        </SectionCard>
+      </section>
+
+      <SectionCard title="What Else Should I Know?" icon={CircleHelp}>
+        <InsightList items={hiddenIntelligence} emptyText="No additional strategic intelligence generated yet." tone="amber" />
+      </SectionCard>
+
+      <SectionCard title="Preparation Hub" icon={BookOpen}>
+        <div className="space-y-4">
+          <div className="rounded-[1.3rem] border border-cyan-500/20 bg-cyan-500/8 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Reference Model</p>
+            <p className="mt-2 text-sm leading-6 text-cyan-50">
+              Structured using roadmap-style learning paths so each weakness maps to a clear sequence: learn fundamentals, build proof, then prepare for interviews.
             </p>
-            <SkillChart scores={data?.skill_scores || {}} matchResult={isRagResult ? matchResult : null} />
-          </SectionCard>
-
-          <SectionCard title="Improvement Plan" icon={TrendingUp}>
-            <div className="space-y-4">
-              <InsightList items={trainingFocus} emptyText="No improvement recommendations yet." tone="accent" />
-              {detailedPlan?.ranked_missing_skills?.length ? (
-                <div className="space-y-3">
-                  {detailedPlan.ranked_missing_skills.map((item) => (
-                    <div key={item.skill} className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-sm font-black text-white">{item.skill}</p>
-                        <span className="rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100">
-                          Rank {item.importance_rank}
-                        </span>
-                      </div>
-                      <p className="mt-3 text-sm leading-6 text-stone-300">{item.why_it_matters}</p>
-                    </div>
+          </div>
+          {preparationHubItems.map((item) => (
+            <div key={item.skill} className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-black text-white">{item.skill}</p>
+                <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-100">
+                  {item.urgency}
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-stone-300">{item.whyItMatters}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={item.roadmapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100 hover:bg-cyan-500/20"
+                >
+                  Roadmap Track <ExternalLink size={10} className="ml-1 inline" />
+                </a>
+                {(item.resources || [])
+                  .filter((resource) => resource.category === "Practical Learning")
+                  .slice(0, 1)
+                  .map((resource) => (
+                    <a
+                      key={`${item.skill}-project-${resource.url}`}
+                      href={resource.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100 hover:bg-emerald-500/20"
+                    >
+                      Start Project <ExternalLink size={10} className="ml-1 inline" />
+                    </a>
+                  ))}
+              </div>
+              <div className="mt-3 rounded-[1.2rem] border border-white/8 bg-[#120f0d]/65 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">90-Minute Start Plan</p>
+                <div className="mt-2 space-y-2">
+                  {(item.trackPlan || []).map((step) => (
+                    <p key={`${item.skill}-${step}`} className="text-xs leading-6 text-stone-300">{step}</p>
                   ))}
                 </div>
-              ) : null}
-              <ImprovementAccordion steps={detailedPlan?.actionable_steps || []} />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Preparation Links" icon={BookOpen}>
-            <div className="space-y-3">
-              {prepLinks.map((item) => (
-                <div key={item.skill || item.label} className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] p-4">
-                  <p className="text-sm font-black text-white">{item.skill || item.label}</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {(item.resources || []).map((resource) => (
-                      <a
-                        key={resource.url}
-                        href={resource.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-full border border-cyan-500/20 bg-cyan-500/8 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-500/14"
-                      >
-                        {resource.title} <ExternalLink size={12} className="ml-2 inline" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="space-y-6">
-          <SectionCard title="Role Skill Blueprint" icon={Briefcase}>
-            <BlueprintTabs groups={skillBlueprint} />
-          </SectionCard>
-
-          <SectionCard title="Matched Skills" icon={CheckCircle2}>
-            <TagGrid items={matchedSkills} emptyText="No strong matching skills were found yet." tone="success" />
-          </SectionCard>
-
-          <SectionCard title="Missing Skills" icon={XCircle}>
-            <TagGrid items={missingSkills} emptyText="No major missing skills identified." tone="warn" />
-          </SectionCard>
-
-          {smartGapGroups.length ? (
-            <SectionCard title="Skill Gap Heatmap" icon={Flame}>
-              <GapHeatmap groups={smartGapGroups} />
-            </SectionCard>
-          ) : null}
-
-          <SectionCard title="Extracted Resume Skills" icon={UserRoundSearch}>
-            <TagGrid items={extractedSkills} emptyText="No resume skills were extracted." tone="default" />
-          </SectionCard>
-
-          {toolGroups.length ? (
-            <SectionCard title="Tool Relevance Filter" icon={Layers3}>
-              <div className="space-y-4">
-                {toolGroups.map((group) => (
-                  <div key={group.label}>
-                    <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">{group.label}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {group.items.map((item) => (
-                        <span
-                          key={`${group.label}-${item.skill}`}
-                          title={item.reason}
-                          className={`rounded-full border px-3 py-2 text-xs font-bold ${
-                            group.label === "Highly Relevant"
-                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
-                              : group.label === "Indirectly Relevant"
-                                ? "border-amber-500/20 bg-amber-500/10 text-amber-100"
-                                : "border-rose-500/20 bg-rose-500/10 text-rose-100"
-                          }`}
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {["Official Learning", "Practical Learning", "Interview Preparation", "Portfolio Resources", "Market Alignment"].map((category) => (
+                  <div key={`${item.skill}-${category}`} className="rounded-[1.2rem] border border-white/8 bg-[#120f0d]/65 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">{category}</p>
+                    <div className="mt-2 space-y-2">
+                      {item.resources.filter((resource) => resource.category === category).slice(0, 3).map((resource) => (
+                        <a
+                          key={`${item.skill}-${category}-${resource.url}`}
+                          href={resource.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs leading-5 text-cyan-100 hover:bg-cyan-500/20"
                         >
-                          {item.skill}
-                        </span>
+                          {resource.title} <ExternalLink size={11} className="ml-1 inline" />
+                        </a>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
-            </SectionCard>
-          ) : null}
-
-          <SectionCard title="Strength Signals" icon={Sparkles}>
-            <div className="space-y-3">
-              {strengthSignals.length ? strengthSignals.map((item, index) => (
-                <div
-                  key={`${item}-${index}`}
-                  className="animate-fade-up rounded-[1.4rem] border border-emerald-500/14 bg-[linear-gradient(180deg,rgba(76,200,144,0.1),rgba(76,200,144,0.05))] p-4 shadow-[0_0_22px_rgba(76,200,144,0.08)]"
-                  style={{ animationDelay: `${index * 90}ms` }}
-                >
-                  <p className="text-sm leading-6 text-emerald-50">{item}</p>
-                </div>
-              )) : (
-                <p className="text-sm leading-6 text-stone-500">No major strengths were generated yet.</p>
-              )}
             </div>
-          </SectionCard>
-
-          <SectionCard title="Risk Signals" icon={XCircle}>
-            <InsightList items={weaknesses} emptyText="No major risk areas highlighted." tone="rose" />
-          </SectionCard>
-
-          {upgradeIdeas.length ? (
-            <SectionCard title="Candidate Upgrades" icon={ArrowUpRight}>
-              <UpgradeScore score={Math.round(score)} ideas={upgradeIdeas} />
-              <div className="space-y-3">
-                {upgradeIdeas.map((item, index) => (
-                  <div
-                    key={item.area}
-                    className="animate-fade-up rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4"
-                    style={{ animationDelay: `${index * 80}ms` }}
-                  >
-                    <p className="text-sm font-black text-white">{item.area}</p>
-                    <p className="mt-2 text-sm leading-6 text-stone-300">{item.action}</p>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-          ) : null}
-
-          {detailedPlan?.weekly_plan?.length ? (
-            <SectionCard title="Weekly Roadmap" icon={Target}>
-              <div className="space-y-3">
-                {detailedPlan.weekly_plan.map((item) => (
-                  <div key={`${item.week}-${item.goal}`} className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">Week {item.week}</p>
-                    <p className="mt-2 text-sm font-black text-white">{item.goal}</p>
-                    <p className="mt-2 text-sm leading-6 text-stone-300">{item.deliverable}</p>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-          ) : null}
+          ))}
         </div>
-      </div>
+      </SectionCard>
+
+      <SectionCard title="Skill Coverage Map" icon={GitBranch}>
+        <p className="mb-4 text-sm leading-6 text-stone-400">
+          This map supports the intelligence sections above by showing direct, partial, and missing skill proof.
+        </p>
+        <SkillChart scores={data?.skill_scores || {}} matchResult={isRagResult ? matchResult : null} />
+      </SectionCard>
     </div>
   );
 }

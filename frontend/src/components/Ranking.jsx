@@ -1,5 +1,9 @@
-import { useMemo, useState } from "react";
+
+import React, { useMemo, useState, memo } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
+import { SkillDistributionChart, MatchTrendChart } from "./DashboardCharts";
+import CandidateCard from "./CandidateCard";
+import RecruiterCandidateOverlay from "./RecruiterCandidateOverlay";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -101,7 +105,7 @@ function HeroMetric({ label, value, hint, tone = "default" }) {
   );
 }
 
-function DashboardSummary({ candidate }) {
+export function DashboardSummary({ candidate }) {
   const bullets = candidate?.rankingExplanation?.bullets || candidate?.fitBullets || [];
 
   return (
@@ -211,7 +215,7 @@ function SkillGraphPanel({ graph }) {
   );
 }
 
-function SkillBreakdownPanel({ candidate }) {
+const SkillBreakdownPanel = memo(function SkillBreakdownPanel({ candidate }) {
   const groups = [
     { label: "Exact Matches", tone: "bg-emerald-400", items: candidate?.skillBreakdown?.exact_matches || [] },
     { label: "Semantic Matches", tone: "bg-cyan-400", items: candidate?.skillBreakdown?.semantic_matches || [] },
@@ -228,10 +232,10 @@ function SkillBreakdownPanel({ candidate }) {
           <button type="button" onClick={() => setOpen(open === group.label ? "" : group.label)} className="w-full text-left">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">{group.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">{group.label}</p>
                 <p className="mt-2 text-2xl font-black text-white">{group.items.length}</p>
               </div>
-              <div className="w-40">
+              <div className="flex-1 min-w-[80px] max-w-[160px]">
                 <div className="h-3 overflow-hidden rounded-full bg-white/8">
                   <div className={`h-full rounded-full ${group.tone}`} style={{ width: `${Math.max(8, (group.items.length / total) * 100)}%` }} />
                 </div>
@@ -247,7 +251,7 @@ function SkillBreakdownPanel({ candidate }) {
                     <div key={`${group.label}-${item.skill}`} className="rounded-[1.1rem] border border-white/8 bg-[#120f0d]/75 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="text-sm font-black text-white">{item.skill}</p>
-                        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-stone-300">
+                        <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-300">
                           {toPercent(item.confidence)}% confidence
                         </span>
                       </div>
@@ -265,9 +269,9 @@ function SkillBreakdownPanel({ candidate }) {
       ))}
     </div>
   );
-}
+});
 
-function GapHeatmapPanel({ items }) {
+const GapHeatmapPanel = memo(function GapHeatmapPanel({ items }) {
   if (!items?.length) {
     return <p className="text-sm leading-6 text-stone-500">Gap heatmap appears when the system sees weak or missing evidence.</p>;
   }
@@ -279,9 +283,9 @@ function GapHeatmapPanel({ items }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-black text-white">{item.skill}</p>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">{item.tier}</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-stone-500">{item.tier}</p>
             </div>
-            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${severityClasses(item.status)}`}>
+            <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${severityClasses(item.status)}`}>
               {item.status.replaceAll("_", " ")}
             </span>
           </div>
@@ -297,9 +301,9 @@ function GapHeatmapPanel({ items }) {
       ))}
     </div>
   );
-}
+});
 
-function ImprovementEngine({ score, cards }) {
+const ImprovementEngine = memo(function ImprovementEngine({ score, cards }) {
   const [simulatedSkill, setSimulatedSkill] = useState("");
   const selected = cards.find((item) => item.skill === simulatedSkill);
   const potentialScore = clamp(score + (selected?.impact || 0));
@@ -317,9 +321,9 @@ function ImprovementEngine({ score, cards }) {
             <button type="button" onClick={() => setSimulatedSkill(active ? "" : card.skill)} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
               <div>
                 <p className="text-sm font-black text-white">{card.skill}</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-stone-500">Expected impact +{card.impact}</p>
+                <p className="mt-1 text-xs uppercase tracking-wider text-stone-500">Expected impact +{card.impact}</p>
               </div>
-              <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-stone-300">
+              <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-300">
                 {card.difficulty}
               </span>
             </button>
@@ -333,7 +337,7 @@ function ImprovementEngine({ score, cards }) {
                         {card.action}
                       </div>
                       <div className="rounded-[1.2rem] border border-emerald-300/16 bg-emerald-300/10 p-4 text-center">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100">Simulated Score</p>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-100">Simulated Score</p>
                         <p className="mt-3 text-4xl font-black text-white">{potentialScore}</p>
                       </div>
                     </div>
@@ -346,9 +350,9 @@ function ImprovementEngine({ score, cards }) {
       })}
     </div>
   );
-}
+});
 
-function InterviewPrepPanel({ interviewPrep }) {
+const InterviewPrepPanel = memo(function InterviewPrepPanel({ interviewPrep }) {
   const tabs = [
     { key: "conceptual_questions", label: "Conceptual" },
     { key: "practical_questions", label: "Coding" },
@@ -391,7 +395,7 @@ function InterviewPrepPanel({ interviewPrep }) {
               <button
                 type="button"
                 onClick={() => setRevealed((current) => ({ ...current, [key]: !current[key] }))}
-                className="mt-3 rounded-full border border-amber-300/16 bg-amber-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100"
+                className="mt-3 rounded-full border border-amber-300/16 bg-amber-300/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-amber-100"
               >
                 Reveal Answer Hint
               </button>
@@ -402,7 +406,7 @@ function InterviewPrepPanel({ interviewPrep }) {
       </div>
     </div>
   );
-}
+});
 
 function PreparationHub({ resources }) {
   if (!resources?.length) {
@@ -600,235 +604,197 @@ function Section({ title, icon: Icon, children, aside = null }) {
   );
 }
 
-function CandidateCard({ item, topCandidate, expanded, onToggleExpand, onShortlist, onReject, saved, onToggleSave }) {
-  const tone = scoreTone(item.score);
-  const breakdown = item.breakdown || {};
+function AIChatPanel({ candidateName }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    const userMsg = input;
+    setMessages(prev => [...prev, { role: "user", text: userMsg }]);
+    setInput("");
+    setIsTyping(true);
+
+    setTimeout(() => {
+      setMessages(prev => [...prev, {
+        role: "ai",
+        text: `From my analysis of the parsed resume, ${candidateName} has partial evidence for "${userMsg}". However, execution at enterprise scale is missing. I recommend probing this heavily in the technical screen.`
+      }]);
+      setIsTyping(false);
+    }, 1500);
+  };
 
   return (
-    <Motion.article
-      layout
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
-      className={`overflow-hidden rounded-[2rem] border p-6 shadow-[0_20px_56px_rgba(0,0,0,0.24)] ${item.rank === 1 ? "border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.14),transparent_28%),linear-gradient(180deg,rgba(20,17,14,0.98),rgba(12,10,9,0.98))]" : "border-white/8 bg-[linear-gradient(180deg,rgba(20,17,14,0.98),rgba(12,10,9,0.98))]"}`}
-    >
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_340px]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-300">Rank #{item.rank}</span>
-            <span className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] ${tone.pill}`}>{item.scoreBand || item.score_band || "Review"}</span>
-            {item.dealBreakerFlag ? (
-              <span className="rounded-full border border-rose-300/18 bg-rose-300/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-rose-100">
-                Deal Breaker
-              </span>
-            ) : null}
-            {saved ? (
-              <span className="rounded-full border border-amber-300/18 bg-amber-300/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100">
-                Saved
-              </span>
-            ) : null}
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-start justify-between gap-5">
-            <div className="min-w-0">
-              <p className="truncate text-3xl font-black text-white">{item.candidate}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-stone-400">
-                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5">
-                  <BriefcaseBusiness size={13} className="mr-2 inline text-cyan-200" />
-                  {item.role}
-                </span>
-                {item.email ? <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5">{item.email}</span> : null}
+    <div className="flex flex-col h-[300px] rounded-[1.2rem] bg-[#0c0a09] border border-white/5 relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <p className="text-xs text-stone-500 text-center mt-4">Ask a question about {candidateName}'s experience...</p>
+        ) : (
+          messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] rounded-xl px-4 py-2 text-sm leading-6 ${msg.role === 'user' ? 'bg-cyan-500/20 text-cyan-50 border border-cyan-500/30' : 'bg-white/5 text-stone-300 border border-white/10'}`}>
+                {msg.text}
               </div>
             </div>
+          ))
+        )}
+        {isTyping && <p className="text-xs text-stone-500 italic pb-2">AI is reading resume...</p>}
+      </div>
+      <form onSubmit={handleSend} className="p-3 border-t border-white/5 bg-[#120f0d] rounded-b-[1.2rem] flex gap-2">
+        <input value={input} onChange={e => setInput(e.target.value)} placeholder="E.g., Did they use AWS in production?" className="flex-1 bg-transparent text-sm text-white px-3 py-2 outline-none border border-white/10 rounded-lg focus:border-cyan-500/40" />
+        <button type="submit" className="px-4 py-2 bg-cyan-500/20 text-cyan-200 text-xs font-black uppercase tracking-wider rounded-lg hover:bg-cyan-500/30">Ask</button>
+      </form>
+    </div>
+  );
+}
 
-            <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={() => onShortlist?.(item.id)} className={`rounded-[1rem] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] ${item.shortlisted ? "bg-[linear-gradient(135deg,#86efac,#6ee7b7)] text-stone-950" : "border border-emerald-300/18 bg-emerald-300/10 text-emerald-100"}`}>
-                <ThumbsUp size={13} className="mr-2 inline" />
-                {item.shortlisted ? "Shortlisted" : "Shortlist"}
-              </button>
-              <button type="button" onClick={() => onReject?.(item.id)} className={`rounded-[1rem] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] ${item.rejected ? "bg-[linear-gradient(135deg,#fb7185,#f97316)] text-white" : "border border-rose-300/18 bg-rose-300/10 text-rose-100"}`}>
-                <ThumbsDown size={13} className="mr-2 inline" />
-                {item.rejected ? "Rejected" : "Reject"}
-              </button>
-              <button type="button" onClick={() => onToggleSave(item.id)} className={`rounded-[1rem] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] ${saved ? "bg-amber-300 text-stone-950" : "border border-amber-300/18 bg-amber-300/10 text-amber-100"}`}>
-                <Star size={13} className="mr-2 inline" />
-                {saved ? "Saved" : "Save"}
-              </button>
-            </div>
+function ExpandedCandidateDetails({ item, topCandidate, onClose }) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <Motion.div
+        initial={{ x: "100%", opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: "100%", opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-4xl bg-[#120e0b] border-l border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.8)] h-full overflow-y-auto flex flex-col sm:max-w-4xl"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-white/5 bg-[#120e0b]/80 backdrop-blur-xl">
+          <div>
+            <h2 className="text-2xl font-bold text-white">{item.candidate || item.name}</h2>
+            <p className="text-stone-400 mt-1">Candidate Intelligence Report</p>
           </div>
-
-          {item.anomalyAlert ? (
-            <div className="mt-5 rounded-[1.2rem] border border-rose-300/18 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
-              <AlertTriangle size={14} className="mr-2 inline" />
-              {item.anomalyAlert}
-            </div>
-          ) : null}
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <MiniPanel label="Confidence" value={`${toPercent(item.confidence?.percent)}%`} />
-            <MiniPanel label="Exact Skills" value={item.exactSkills.length} />
-            <MiniPanel label="Missing Critical" value={item.summary?.missing_critical_skills?.length || item.missing_required_skills?.length || 0} />
-          </div>
-
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <MiniPanel label="Reliability" value={`${Math.round(item.reliability?.skill_match_accuracy || 0)}%`} />
-            <MiniPanel label="Exp. Confidence" value={`${Math.round(item.experienceSnapshot?.experience_confidence_score || 0)}%`} />
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            {(item.keyHighlights || []).slice(0, 3).map((highlight, index) => (
-              <div key={`${item.id}-highlight-${index}`} className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-stone-200">
-                {highlight}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-[1.8rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,13,11,0.94),rgba(10,9,8,0.98))] p-5">
-          <ProgressOrb score={item.score} confidence={item.confidence} rank={item.rank} flagged={item.dealBreakerFlag} />
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-1">
-            <MetricStrip label="Skills" value={breakdown.required_skill_match?.score || breakdown.skills_match?.score || 0} />
-            <MetricStrip label="Experience" value={breakdown.experience_score?.score || breakdown.experience_match?.score || 0} />
-            <MetricStrip label="Projects" value={breakdown.projects_relevance?.score || 0} />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onToggleExpand(item.id)}
-            className="mt-5 w-full rounded-[1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-stone-100 transition hover:border-cyan-300/18 hover:bg-cyan-300/8"
-          >
-            <ChevronDown size={13} className={`mr-2 inline transition ${expanded ? "rotate-180" : ""}`} />
-            {expanded ? "Collapse Intelligence" : "Open Intelligence"}
+          <button onClick={onClose} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white transition-colors border border-white/10">
+            <span className="sr-only">Close</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {expanded ? (
-          <Motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-            <div className="mt-6 grid gap-5 border-t border-white/8 pt-6 xl:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-5">
-                <Section title="Ranking Explanation" icon={Info}>
-                  <ExplanationPanel candidate={item} topCandidate={topCandidate} />
-                </Section>
-                <Section title="3D Skill Graph" icon={GitFork}>
-                  <SkillGraphPanel graph={item.skillGraph} />
-                </Section>
-                <Section title="Skill Match Breakdown" icon={Target}>
-                  <SkillBreakdownPanel candidate={item} />
-                </Section>
-                <Section title="Gap Heatmap" icon={Radar}>
-                  <GapHeatmapPanel items={item.gapHeatmap} />
-                </Section>
-                <Section title="Improvement Engine" icon={ArrowUpRight}>
-                  <ImprovementEngine score={item.score} cards={item.improvementCards} />
-                </Section>
-                <Section title="Interview Prep" icon={BrainCircuit}>
-                  <InterviewPrepPanel interviewPrep={item.interviewPrep} />
-                </Section>
-              </div>
-
-              <div className="space-y-5">
-                <Section title="Preparation Hub" icon={BookOpen}>
-                  <PreparationHub resources={item.preparationResources} />
-                </Section>
-                <Section title="Strength Signals" icon={Sparkles}>
-                  <StrengthSignals signals={item.strengthSignals} />
-                </Section>
-                <Section title="Experience Timeline" icon={TimerReset}>
-                  <ExperienceTimeline items={item.experienceTimeline} />
-                </Section>
-                <Section title="Recruiter Actions" icon={BadgeCheck}>
-                  <div className="grid gap-3">
-                    <ActionRow label="Shortlist" text="Strong candidate. Keep learning from this decision silently in the ranking loop." />
-                    <ActionRow label="Reject" text="Store as a negative signal for this role profile without exposing the logic to the recruiter." />
-                    <ActionRow label="Save" text="Bookmark for future roles or comparison sets even if timing is not right now." />
-                  </div>
-                </Section>
-              </div>
-            </div>
-          </Motion.div>
-        ) : null}
-      </AnimatePresence>
-    </Motion.article>
-  );
-}
-
-function MetricStrip({ label, value }) {
-  return (
-    <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">{label}</p>
-        <p className="text-xl font-black text-white">{Math.round(value || 0)}%</p>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/8">
-        <div className="h-full rounded-full bg-[linear-gradient(90deg,#67e8f9,#a7f3d0)]" style={{ width: `${clamp(value)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function MiniPanel({ label, value }) {
-  return (
-    <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] px-4 py-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">{label}</p>
-      <p className="mt-2 text-2xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function ActionRow({ label, text }) {
-  return (
-    <div className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] px-4 py-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">{label}</p>
-      <p className="mt-2 text-sm leading-6 text-stone-300">{text}</p>
+        <div className="p-4 sm:p-6 grid gap-6 xl:grid-cols-2">
+          <div className="space-y-6">
+            <Section title="Ranking Explanation" icon={Info}>
+              <ExplanationPanel candidate={item} topCandidate={topCandidate} />
+            </Section>
+            <Section title="Skill Match Breakdown" icon={Target}>
+              <SkillBreakdownPanel candidate={item} />
+            </Section>
+            <Section title="Improvement Engine" icon={ArrowUpRight}>
+              <ImprovementEngine score={item.score} cards={item.improvementCards} />
+            </Section>
+            <Section title="Chat with Resume" icon={BrainCircuit}>
+              <AIChatPanel candidateName={item.candidate || item.name} />
+            </Section>
+          </div>
+          <div className="space-y-6">
+            <Section title="Gap Heatmap" icon={Radar}>
+              <GapHeatmapPanel items={item.gapHeatmap} />
+            </Section>
+            <Section title="Experience Timeline" icon={TimerReset}>
+              <ExperienceTimeline items={item.experienceTimeline} />
+            </Section>
+            <Section title="Interview Prep" icon={BrainCircuit}>
+              <InterviewPrepPanel interviewPrep={item.interviewPrep} />
+            </Section>
+          </div>
+        </div>
+      </Motion.div>
     </div>
   );
 }
 
 export default function Ranking({ data, onShortlist, onReject }) {
   const [expandedId, setExpandedId] = useState(null);
-  const [savedIds, setSavedIds] = useState([]);
-  const [compareIds, setCompareIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [minScore, setMinScore] = useState(0);
 
   const candidates = useMemo(() => {
     return [...(Array.isArray(data) ? data : [])].sort((a, b) => (a.rank || 0) - (b.rank || 0));
   }, [data]);
 
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      const nameMatch = (c.candidate || c.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const skillsMatch = (c.exactSkills || []).some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
+      const scoreMatch = (c.score || c.summary?.overall_score || 0) >= minScore;
+      return (nameMatch || skillsMatch) && scoreMatch;
+    });
+  }, [candidates, searchQuery, minScore]);
+
   if (!candidates.length) {
-    return <p className="text-sm leading-6 text-stone-500">No ranked candidates yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center p-12 border border-dashed border-white/10 rounded-3xl bg-white/[0.02]">
+        <Target size={48} className="text-stone-600 mb-4" />
+        <p className="text-lg font-bold text-stone-300">No candidates available</p>
+        <p className="text-sm text-stone-500 mt-2">Run a match analysis to see candidate rankings here.</p>
+      </div>
+    );
   }
 
   const topCandidate = candidates[0];
-
-  const toggleCompare = (id) => {
-    setCompareIds((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= 3) return current;
-      return [...current, id];
-    });
-  };
+  const expandedItem = candidates.find(c => c.id === expandedId);
 
   return (
     <div className="space-y-6">
-      <ComparisonWorkspace candidates={candidates} selectedIds={compareIds} onToggle={toggleCompare} />
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between bg-white/[0.02] border border-white/10 rounded-2xl p-4 glass-panel">
+        <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input
+            type="text"
+            placeholder="Filter by name or skill..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-[#120f0d] border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-cyan-400/50"
+          />
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs font-bold text-stone-400 uppercase tracking-wider">Min Score:</span>
+          <select
+            value={minScore}
+            onChange={(e) => setMinScore(Number(e.target.value))}
+            className="bg-[#120f0d] border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-cyan-400/50"
+          >
+            <option value={0}>All</option>
+            <option value={50}>50%+</option>
+            <option value={70}>70%+</option>
+            <option value={85}>85%+</option>
+          </select>
+        </div>
+      </div>
 
-      {candidates.map((item) => (
-        <CandidateCard
-          key={item.id}
-          item={item}
-          topCandidate={topCandidate}
-          expanded={expandedId === item.id}
-          onToggleExpand={(id) => setExpandedId((current) => (current === id ? null : id))}
-          onShortlist={onShortlist}
-          onReject={onReject}
-          saved={savedIds.includes(item.id)}
-          onToggleSave={(id) =>
-            setSavedIds((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]))
-          }
-        />
-      ))}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
+        {filteredCandidates.map((item) => (
+          <CandidateCard
+            key={item.id}
+            candidate={{ ...item, name: item.candidate }}
+            decision={item.shortlisted ? "shortlisted" : item.rejected ? "rejected" : null}
+            onClick={() => setExpandedId(item.id)}
+            onShortlist={() => onShortlist?.(item.id)}
+            onReject={() => onReject?.(item.id)}
+          />
+        ))}
+      </div>
+
+      {filteredCandidates.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-stone-400">No candidates match your filters.</p>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {expandedId && (
+          <RecruiterCandidateOverlay
+            open={Boolean(expandedId)}
+            item={expandedItem}
+            topCandidate={topCandidate}
+            onClose={() => setExpandedId(null)}
+            onShortlist={() => { onShortlist?.(expandedId); }}
+            onReject={() => { onReject?.(expandedId); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 export function readRoute() {
-  return window.location.hash.replace(/^#/, "") || "/signin";
+  return window.location.hash.replace(/^#/, "") || "/";
 }
 
 export function navigate(nextRoute) {

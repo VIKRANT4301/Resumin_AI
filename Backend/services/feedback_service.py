@@ -1629,80 +1629,172 @@ def _fullstack_product_upgrades(is_fullstack_role: bool) -> list[dict]:
 
 
 def generate_ai_feedback(resume: dict, job_description: str, match_result: dict | None = None) -> dict:
-    match_result = match_result or {}
-    summary = match_result.get("summary", {}) if isinstance(match_result, dict) else {}
-    job_role = match_result.get("job_role", "Target Role")
-    is_frontend_role = _is_frontend_role(match_result, job_description)
-    is_fullstack_role = _is_fullstack_react_django_role(match_result, job_description)
-    match_analysis = _match_analysis(resume, match_result)
-    semantic_skill_matching = _semantic_skill_matching(resume, match_result, is_frontend_role and not is_fullstack_role)
-    fullstack_match_score = _fullstack_match_score(match_result, resume) if is_fullstack_role else {}
-    semantic_3d_skill_map = _fullstack_semantic_map(resume, match_result, is_fullstack_role)
-    evidence_highlights = _evidence_highlights(resume, match_result)
-    ranked_missing_skills = _rank_missing_skills(match_result)
-    gap_analysis = _gap_analysis(resume, match_result)
-    skill_gap_intelligence = (
-        _fullstack_gap_intelligence(resume, match_result, semantic_3d_skill_map, is_fullstack_role)
-        if is_fullstack_role
-        else _skill_gap_intelligence(resume, match_result, semantic_skill_matching, is_frontend_role)
-    )
-    improvement_plan = _build_improvement_plan(job_role, ranked_missing_skills[:3])
-    fullstack_improvement_plan = _fullstack_improvement_plan(ranked_missing_skills, is_fullstack_role)
-    role_skill_blueprint = (
-        _fullstack_role_skill_blueprint(is_fullstack_role)
-        if is_fullstack_role
-        else _frontend_role_skill_blueprint(match_result, is_frontend_role)
-    )
-    tool_relevance_filter = _tool_relevance_filter(resume, is_frontend_role and not is_fullstack_role)
-    strength_signals = (
-        _fullstack_strength_signals(resume, match_result, is_fullstack_role)
-        if is_fullstack_role
-        else _frontend_strength_signals(resume, match_result, is_frontend_role)
-    )
-    risk_signals = _risk_signals(resume, match_result, ranked_missing_skills)
-    why_candidate_fits = _why_candidate_fits(match_analysis)
-    candidate_summary = _candidate_summary(job_role, match_analysis, strength_signals, risk_signals)
-    additional_value = (
-        _fullstack_product_upgrades(is_fullstack_role)
-        if is_fullstack_role
-        else _additional_value_for_candidate(resume, is_frontend_role)
-    )
-    preparation_resources = (
-        _fullstack_preparation_resources(ranked_missing_skills, is_fullstack_role)
-        if is_fullstack_role
-        else _preparation_plan(improvement_plan)
-    )
-    interview_question_module = _interview_question_module(ranked_missing_skills, is_fullstack_role)
+    import json
+    from services.ai_runtime import get_generative_model
+    from utils.cleaner import clean_json
 
-    return {
-        "score": int(round(float(summary.get("overall_score", 0) or 0))),
-        "score_band": summary.get("score_band", "Weak Fit"),
-        "summary": match_analysis.get("reasoning", f"{job_role} alignment was evaluated from the resume and job description."),
-        "candidate_summary": candidate_summary,
-        "fullstack_match_score": fullstack_match_score,
-        "match_analysis": match_analysis,
-        "semantic_skill_matching": semantic_skill_matching,
-        "semantic_3d_skill_map": semantic_3d_skill_map,
-        "evidence_highlights": evidence_highlights,
-        "skill_gap_analysis": gap_analysis,
-        "skill_gap_intelligence": skill_gap_intelligence,
-        "improvement_plan": improvement_plan,
-        "fullstack_improvement_plan": fullstack_improvement_plan,
-        "role_skill_blueprint": role_skill_blueprint,
-        "tool_relevance_filter": tool_relevance_filter,
-        "strength_signals": strength_signals,
-        "additional_value_for_candidate": additional_value,
-        "interview_question_module": interview_question_module,
-        "role_focus": "fullstack-react-django" if is_fullstack_role else "frontend" if is_frontend_role else "general",
-        "strengths": _legacy_strengths(match_analysis),
-        "top_strengths": [item.get("signal", "") for item in strength_signals[:3] if item.get("signal")],
-        "top_concerns": [item.get("title", "") for item in risk_signals[:3] if item.get("title")],
-        "risk_signals": risk_signals,
-        "missing_skills": [item["skill"] for item in ranked_missing_skills[:5]],
-        "improvements": _legacy_improvements(improvement_plan),
-        "match_reason": "Weighted fit combines required skills, preferred skills, and visible experience alignment.",
-        "why_candidate_fits": why_candidate_fits,
-        "preparation_plan": _preparation_plan(improvement_plan),
-        "preparation_resources": preparation_resources,
-        "job_description_excerpt": _clip(job_description, 240),
-    }
+    match_result = match_result or {}
+    summary = match_result.get("summary", {})
+    overall_score = summary.get("overall_score", 0)
+    matched_skills = match_result.get("matched_skills", [])
+    missing_required = match_result.get("missing_required_skills", [])
+    
+    prompt = f"""You are a world-class AI Career Intelligence Architect, Resume Forensic Analyst, and Recruiter Psychology Expert operating at the level of a $500/hr career coach combined with a senior FAANG recruiter and a hiring science researcher.
+
+CANDIDATE CONTEXT:
+- Name: {resume.get("name", "Candidate")}
+- Overall Match Score: {overall_score}% 
+- Matched Skills: {", ".join(matched_skills[:8]) or "None detected"}
+- Missing Required Skills: {", ".join(missing_required[:6]) or "None"}
+- Years of Experience: {resume.get("years_of_experience", 0)}
+- Achievements on Resume: {"; ".join(resume.get("achievements", [])[:3]) or "None extracted"}
+- GitHub: {"Yes" if resume.get("github_url") else "No"}
+- LinkedIn: {"Yes" if resume.get("linkedin_url") else "No"}
+- Skills Count: {len(resume.get("skills", []))}
+- Projects: {len(resume.get("projects", []))}
+
+YOUR MISSION:
+Generate brutally honest, hyper-specific, recruiter-grade career intelligence. Every insight must reference THIS specific candidate's resume, not generic advice. If skills match well, focus on differentiation and salary upside. If gaps exist, provide exact 30-day fix plans.
+
+ABSOLUTE REQUIREMENTS:
+1. NO generic "No gaps detected" — always find growth opportunities
+2. Reference specific skills, companies, or achievements from this resume
+3. ATS score must reflect actual keyword density vs job description
+4. Interview readiness score (0-100) based on proof depth in resume
+5. Market tier must reflect real hiring market conditions for this skill set
+6. Bullet transformations must use ACTUAL bullets from experience/projects
+7. Recruiter objections must reflect THIS specific profile's actual weak spots
+
+Return ONLY valid JSON matching this exact schema:
+{{
+  "executive_snapshot": {{
+    "candidate_archetype": "(e.g., Execution-Ready Full Stack Builder, AI-Augmented Frontend Specialist, Early-Career Backend Engineer with Project Proof)",
+    "market_tier": "(Underprepared | Emerging | Competitive | Strong | Premium Hireable)",
+    "hiring_velocity": "(e.g., 2-4 weeks with resume fix, 3-6 months as-is, ready to hire now)",
+    "top_3_strengths": ["", "", ""],
+    "top_3_risks": ["", "", ""],
+    "recruiter_first_impression_score": 0,
+    "resume_credibility_score": 0,
+    "ats_score": 0,
+    "interview_readiness_score": 0,
+    "one_line_verdict": "(crisp 1-sentence recruiter-view verdict)"
+  }},
+  "career_trajectory": {{
+    "current_level": "(Junior | Mid | Senior | Lead | Principal)",
+    "target_level": "(what level this JD expects)",
+    "gap_years": 0,
+    "fastest_path": "(specific 90-day action plan)",
+    "salary_range_current": "(realistic current market range based on skills + exp)",
+    "salary_range_achievable": "(range after resume fixes + skill adds)",
+    "promotion_blockers": [""]
+  }},  
+  "skill_gap_intelligence": [
+    {{
+      "gap_type": "(Missing hard skill | Missing depth proof | Missing business impact | Missing architecture knowledge)",
+      "skill": "",
+      "severity": "(Critical | High | Medium | Low)",
+      "why_recruiters_care": "",
+      "how_it_affects_hiring": "",
+      "exact_fix": "",
+      "time_to_fix": "(e.g., 2 weeks with focused project)"
+    }}
+  ],
+  "bullet_transformation_engine": [
+    {{
+      "before": "(actual weak bullet from resume)",
+      "after": "(rewritten with STAR format + quantified impact)",
+      "impact_change": "(what recruiter perceives differently)"
+    }}
+  ],
+  "market_positioning": {{
+    "startup_readiness": {{"score": 0, "why": "", "blocker": ""}},
+    "enterprise_readiness": {{"score": 0, "why": "", "blocker": ""}},
+    "product_readiness": {{"score": 0, "why": "", "blocker": ""}},
+    "remote_global_readiness": {{"score": 0, "why": "", "blocker": ""}},
+    "freelance_readiness": {{"score": 0, "why": "", "blocker": ""}},
+    "leadership_readiness": {{"score": 0, "why": "", "blocker": ""}}
+  }},
+  "recruiter_objection_simulator": [
+    {{
+      "concern": "(specific objection a recruiter would raise about THIS profile)",
+      "severity": "(Dealbreaker | High | Medium | Low)",
+      "counter_strategy": "(exact 2-sentence response the candidate should prepare)"
+    }}
+  ],
+  "preparation_hub": [
+    {{
+      "weakness": "(specific gap from this resume)",
+      "fix_7_day": "(exact task with deliverable)",
+      "upgrade_30_day": "(project or course with measurable output)",
+      "career_leap_90_day": "(portfolio or certification milestone)",
+      "best_project": "(specific project idea for this role)",
+      "best_certification": "(most impactful cert for this JD)",
+      "best_portfolio_proof": "(what to showcase + how)",
+      "interview_narrative": "(exact story arc for behavioral questions)",
+      "linkedin_branding": "(specific headline + about section tip)"
+    }}
+  ],
+  "skill_coverage_map": {{
+    "resume_skills_detected": [""],
+    "market_expected_skills": [""],
+    "missing_competitive_skills": [""],
+    "semantic_match_percent": {overall_score},
+    "skill_depth_percent": 0,
+    "skill_proof_percent": 0,
+    "ats_match_percent": 0,
+    "differentiation_score": 0
+  }},
+  "hirable_acceleration": {{
+    "project_roi": ["(specific project that gives maximum hiring ROI for this role)"],
+    "bullet_rewrites": ["(specific bullet rewrite from actual experience)"],
+    "missing_metrics": ["(what to quantify that's currently vague)"],
+    "interview_narrative": ["(specific STAR story to prepare based on projects)"],
+    "salary_upside_opportunity": "(how much salary increase is possible with fixes)"
+  }}
+}}
+
+RESUME DATA:
+{json.dumps({"resume": resume, "job_description": job_description[:3000], "match_summary": summary}, ensure_ascii=False)[:12000]}
+"""
+
+    try:
+        from services.ai_runtime import safe_generate_content
+        response_text = safe_generate_content(prompt)
+        feedback_data = json.loads(clean_json(response_text))
+        # Ensure backward compat keys
+        if "preparation_hub" in feedback_data and "preparation_hub_2" not in feedback_data:
+            feedback_data["preparation_hub_2"] = feedback_data["preparation_hub"]
+        return feedback_data
+    except Exception as e:
+        print(f"Error generating AI feedback: {e}")
+        return {
+            "executive_snapshot": {
+                "candidate_archetype": "Profile Under Analysis",
+                "market_tier": "Emerging",
+                "hiring_velocity": "Requires profile strengthening",
+                "top_3_strengths": matched_skills[:3] or ["Technical foundation", "Project experience", "Skill diversity"],
+                "top_3_risks": missing_required[:3] or ["Limited quantified impact", "Sparse proof depth", "ATS optimization needed"],
+                "recruiter_first_impression_score": max(30, int(overall_score * 0.8)),
+                "resume_credibility_score": max(25, int(overall_score * 0.75)),
+                "ats_score": max(20, int(overall_score * 0.7)),
+                "interview_readiness_score": max(20, int(overall_score * 0.65)),
+                "one_line_verdict": f"Candidate shows {overall_score}% match with room for targeted improvement."
+            },
+            "career_trajectory": {
+                "current_level": "Mid",
+                "target_level": "Senior",
+                "gap_years": 1,
+                "fastest_path": "Add 2 quantified projects and close the top 2 skill gaps within 30 days.",
+                "salary_range_current": "Market rate based on current skill set",
+                "salary_range_achievable": "15-25% uplift after targeted improvements",
+                "promotion_blockers": ["Missing proof of leadership", "No quantified business impact shown"]
+            },
+            "skill_gap_intelligence": [{"gap_type": "Missing proof depth", "skill": s, "severity": "High", "why_recruiters_care": "Required for this role", "how_it_affects_hiring": "Reduces shortlist probability", "exact_fix": f"Build one project showcasing {s}", "time_to_fix": "2-3 weeks"} for s in missing_required[:3]],
+            "bullet_transformation_engine": [],
+            "market_positioning": {k: {"score": max(20, int(overall_score * r)), "why": "", "blocker": ""} for k, r in [("startup_readiness", 0.9), ("enterprise_readiness", 0.7), ("product_readiness", 0.8), ("remote_global_readiness", 0.75), ("freelance_readiness", 0.65), ("leadership_readiness", 0.5)]},
+            "recruiter_objection_simulator": [],
+            "preparation_hub_2": [],
+            "preparation_hub": [],
+            "skill_coverage_map": {"resume_skills_detected": matched_skills[:8], "market_expected_skills": [], "missing_competitive_skills": missing_required[:5], "semantic_match_percent": overall_score, "skill_depth_percent": 0, "skill_proof_percent": 0, "ats_match_percent": 0, "differentiation_score": 0},
+            "hirable_acceleration": {"project_roi": [], "bullet_rewrites": [], "missing_metrics": [], "interview_narrative": [], "salary_upside_opportunity": ""},
+        }

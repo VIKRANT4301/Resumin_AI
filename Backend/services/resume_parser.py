@@ -5,19 +5,21 @@ from services.ai_runtime import get_generative_model
 from utils.cleaner import clean_json
 
 RESUME_PARSER_PROMPT = """
-You are a resume extraction engine for an AI hiring platform.
+You are a world-class resume extraction engine for an AI hiring platform.
 
-Your job is to read raw resume text and convert it into a clean, normalized JSON object.
+Your job is to read raw resume text and convert it into a rich, normalized JSON object that powers AI candidate scoring.
 
 Rules:
-- Return ONLY valid JSON.
-- Do not include markdown, comments, or explanations.
+- Return ONLY valid JSON. No markdown, no comments, no explanations.
 - Use only information explicitly present in the resume text.
 - Standardize the structure even if the resume layout is messy.
 - Deduplicate skills, certifications, and repeated entries.
 - Keep concise, recruiter-friendly technology names in skills.
-- Keep arrays even when empty.
-- Use empty strings for missing scalar fields.
+- Keep arrays even when empty. Use empty strings for missing scalar fields.
+- For github_url and linkedin_url: extract the full URL if present, else empty string.
+- For years_of_experience: compute total from all date ranges (e.g. "Jan 2021 - Dec 2023" = 2 years). Estimate 0 if no dates.
+- For languages: only spoken/written languages (e.g. English, Hindi), NOT programming languages.
+- For achievements: extract quantified results like percentages, user counts, speed improvements. Max 5.
 
 Required JSON schema:
 {
@@ -25,7 +27,12 @@ Required JSON schema:
   "email": "",
   "phone": "",
   "location": "",
+  "github_url": "",
+  "linkedin_url": "",
   "summary": "",
+  "years_of_experience": 0,
+  "languages": [""],
+  "achievements": [""],
   "skills": [""],
   "experience": [
     {
@@ -41,6 +48,7 @@ Required JSON schema:
       "degree": "",
       "institution": "",
       "year": "",
+      "gpa": "",
       "details": ""
     }
   ],
@@ -48,7 +56,9 @@ Required JSON schema:
     {
       "name": "",
       "description": "",
-      "technologies": [""]
+      "technologies": [""],
+      "url": "",
+      "impact": ""
     }
   ],
   "certifications": [""]
@@ -258,12 +268,25 @@ def _fallback_resume_payload(text: str, filename: str) -> dict:
     lines = _split_lines(text)
     email = _extract_email(text)
 
+    def _extract_github_url(raw: str) -> str:
+        m = re.search(r"https?://(?:www\.)?github\.com/[\w.-]+", raw or "")
+        return m.group(0) if m else ""
+
+    def _extract_linkedin_url(raw: str) -> str:
+        m = re.search(r"https?://(?:www\.)?linkedin\.com/in/[\w.-]+", raw or "")
+        return m.group(0) if m else ""
+
     return {
         "name": _extract_name(lines, email),
         "email": email,
         "phone": _extract_phone(text),
         "location": _extract_location(lines),
+        "github_url": _extract_github_url(text),
+        "linkedin_url": _extract_linkedin_url(text),
         "summary": _extract_summary(lines),
+        "years_of_experience": 0,
+        "languages": [],
+        "achievements": [],
         "skills": _extract_skills(text),
         "experience": _extract_experience(lines),
         "education": _extract_education(lines),
@@ -282,17 +305,29 @@ def _normalize_resume_payload(data: dict, filename: str) -> dict:
     )
     education = _normalize_object_list(
         data.get("education", []),
-        ["degree", "institution", "year", "details"],
+        ["degree", "institution", "year", "gpa", "details"],
     )
     projects = _normalize_projects(data.get("projects", []))
     certifications = _normalize_string_list(data.get("certifications", []))
+    languages = _normalize_string_list(data.get("languages", []))
+    achievements = _normalize_string_list(data.get("achievements", []))
+
+    try:
+        years_of_experience = int(float(data.get("years_of_experience") or 0))
+    except Exception:
+        years_of_experience = 0
 
     normalized = {
         "name": _normalize_text(data.get("name")),
         "email": _normalize_text(data.get("email")),
         "phone": _normalize_text(data.get("phone")),
         "location": _normalize_text(data.get("location")),
+        "github_url": _normalize_text(data.get("github_url")),
+        "linkedin_url": _normalize_text(data.get("linkedin_url")),
         "summary": _normalize_text(data.get("summary")),
+        "years_of_experience": years_of_experience,
+        "languages": languages,
+        "achievements": achievements,
         "skills": skills,
         "experience": experience,
         "education": education,
@@ -317,11 +352,11 @@ def parse_resume(text: str, filename: str = "unknown") -> dict:
 
     payload = {}
     try:
-        response = get_generative_model("gemini-2.5-flash-lite", "application/json").generate_content(
-            f"{RESUME_PARSER_PROMPT}\n\nRESUME_TEXT:\n{text}",
-            generation_config={"temperature": 0.1},
+        from services.ai_runtime import safe_generate_content
+        response_text = safe_generate_content(
+            f"{RESUME_PARSER_PROMPT}\n\nRESUME_TEXT:\n{text}"
         )
-        payload = json.loads(clean_json(response.text))
+        payload = json.loads(clean_json(response_text))
     except Exception as exc:
         print(f"Resume parser fallback enabled: {exc}")
         payload = _fallback_resume_payload(text, filename)

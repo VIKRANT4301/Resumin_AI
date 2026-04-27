@@ -498,10 +498,30 @@ def parse_job_description(job_text: str) -> dict:
         payload = _fallback_job_payload(job_text)
 
     if not _normalize_string_list(payload.get("required_skills", [])) and not _normalize_string_list(payload.get("preferred_skills", [])):
-        payload = {
-            **_fallback_job_payload(job_text),
-            **payload,
-        }
+        fallback = _fallback_job_payload(job_text)
+        merged = dict(fallback)
+
+        role = _normalize_text(payload.get("role"))
+        summary = _normalize_text(payload.get("summary"))
+        required = _normalize_string_list(payload.get("required_skills", []))
+        preferred = _normalize_string_list(payload.get("preferred_skills", []))
+        responsibilities = _normalize_string_list(payload.get("responsibilities", []))
+        min_years = _safe_int(payload.get("min_years_experience"))
+
+        if role:
+            merged["role"] = role
+        if summary:
+            merged["summary"] = summary
+        if required:
+            merged["required_skills"] = required
+        if preferred:
+            merged["preferred_skills"] = preferred
+        if responsibilities:
+            merged["responsibilities"] = responsibilities
+        if min_years > 0:
+            merged["min_years_experience"] = min_years
+
+        payload = merged
 
     return {
         "role": _normalize_text(payload.get("role")) or "Target Role",
@@ -1198,9 +1218,9 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
     matched_preferred = len([item for item in preferred if item["matched"]])
     candidate_years = float(experience_snapshot.get("total_years", 0) or 0)
 
-    def weighted_match(items: list[dict]) -> float:
+    def weighted_match(items: list[dict], empty_default: float = 100.0) -> float:
         if not items:
-            return 100.0
+            return float(empty_default)
         total_weight = sum(float(item.get("weight", 1.0) or 1.0) for item in items)
         matched_weight = 0.0
         for item in items:
@@ -1211,10 +1231,10 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
             matched_weight += weight * multiplier
         return round((matched_weight / max(total_weight, 1e-6)) * 100, 1)
 
-    required_match = weighted_match(required)
-    preferred_match = weighted_match(preferred)
+    required_match = weighted_match(required, empty_default=55.0)
+    preferred_match = weighted_match(preferred, empty_default=50.0)
     critical_required = [item for item in required if item.get("importance") == "critical"]
-    critical_match = weighted_match(critical_required)
+    critical_match = weighted_match(critical_required, empty_default=required_match)
     missing_critical = [item for item in critical_required if not item.get("matched")]
 
     if required_years <= 0:
@@ -1224,7 +1244,7 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
     else:
         experience_score = round((candidate_years / max(required_years, 1)) * 100, 1)
 
-    exact_required_rate = round((len([item for item in required if item.get("match_type") == "exact"]) / len(required)) * 100, 1) if required else 100.0
+    exact_required_rate = round((len([item for item in required if item.get("match_type") == "exact"]) / len(required)) * 100, 1) if required else 55.0
     experience_confidence_score = float(experience_snapshot.get("experience_confidence_score", 0) or 0)
     recency_score = float(experience_snapshot.get("recency_score", 0) or 0)
 
@@ -1237,6 +1257,11 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
         + (recency_score * 0.03),
         1,
     )
+
+    # Calibrate scores when JD parsing produced sparse requirement coverage.
+    # Without this, jobs with 0-1 extracted skills can yield inflated 90+ scores.
+    coverage_signal = min(1.0, (len(required) + (len(preferred) * 0.5)) / 4.0)
+    overall_score = round(overall_score * (0.75 + (0.25 * coverage_signal)), 1)
 
     if missing_critical:
         overall_score = round(max(0.0, overall_score - min(32, 18 + (len(missing_critical) - 1) * 7)), 1)
@@ -1253,6 +1278,21 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
     # Count exact vs semantic matches for ranking boost
     exact_matches = len([item for item in matched if item.get("match_type") == "exact"])
     semantic_matches = len([item for item in matched if item.get("match_type") == "semantic"])
+
+    # ATS score: based on exact keyword match rate vs JD skills
+    ats_score = round(
+        (exact_required_rate * 0.6) + (required_match * 0.3) + (preferred_match * 0.1), 1
+    )
+
+    # Interview readiness: based on project depth + experience confidence + matched skills
+    project_signal_count = len([item for item in scored if item.get("evidence_type") in {"projects", "project"}])
+    interview_readiness = round(
+        (required_match * 0.45)
+        + (min(project_signal_count / 3, 1.0) * 25)
+        + (experience_confidence_score * 0.2)
+        + (recency_score * 0.1),
+        1,
+    )
 
     return {
         "overall_score": overall_score,
@@ -1275,6 +1315,8 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
         "recency_score": recency_score,
         "missing_critical_skills": [item["skill"] for item in missing_critical],
         "exact_required_rate": exact_required_rate,
+        "ats_score": min(100.0, ats_score),
+        "interview_readiness_score": min(100.0, interview_readiness),
         "scoring_breakdown": {
             "critical_skill_match": {"weight": 40, "score": critical_match},
             "required_skill_match": {"weight": 25, "score": required_match},
@@ -1298,6 +1340,7 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
         "project_relevance_percent": round(project_relevance, 1),
         "verdict": score_band,
     }
+
 
 
 def match_resume_to_job(resume: dict, job_text: str) -> dict:

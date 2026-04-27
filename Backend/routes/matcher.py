@@ -186,6 +186,7 @@ async def _parse_uploaded_resume(file: UploadFile, persist: bool) -> dict:
 def _build_ranked_candidate(candidate: dict, match: dict, feedback: dict) -> dict:
     summary = match.get("summary", {})
     top_matches = match.get("matched_skills", [])[:5]
+    exec_snap = (feedback.get("executive_snapshot") or {})
 
     return {
         "id": candidate.get("_candidate_key") or candidate.get("email") or candidate.get("_source_file"),
@@ -229,7 +230,23 @@ def _build_ranked_candidate(candidate: dict, match: dict, feedback: dict) -> dic
         "resume": candidate,
         "match": match,
         "feedback": feedback,
+        # ── AI Intelligence fields (top-level for easy frontend access) ──
+        "aiArchetype": exec_snap.get("candidate_archetype", ""),
+        "marketTier": exec_snap.get("market_tier", ""),
+        "hiringVelocity": exec_snap.get("hiring_velocity", ""),
+        "oneLineVerdict": exec_snap.get("one_line_verdict", ""),
+        "atsScore": exec_snap.get("ats_score", summary.get("ats_score", 0)),
+        "interviewReadiness": exec_snap.get("interview_readiness_score", summary.get("interview_readiness_score", 0)),
+        "impressionScore": exec_snap.get("recruiter_first_impression_score", 0),
+        "credibilityScore": exec_snap.get("resume_credibility_score", 0),
+        "careerTrajectory": feedback.get("career_trajectory", {}),
+        "aiTopStrengths": exec_snap.get("top_3_strengths", []),
+        "aiTopRisks": exec_snap.get("top_3_risks", []),
+        "aiSkillGaps": feedback.get("skill_gap_intelligence", []),
+        "aiBullets": feedback.get("bullet_transformation_engine", []),
+        "aiObjections": feedback.get("recruiter_objection_simulator", []),
     }
+
 
 
 def _normalize_action_state(action_state: object) -> dict[str, dict]:
