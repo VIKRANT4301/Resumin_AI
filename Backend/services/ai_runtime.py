@@ -29,63 +29,72 @@ def _get_api_configured():
     return genai
 
 def get_generative_model(
-    model_name: str = "gemini-1.5-flash",
+    model_name: str = "gemini-2.5-flash-lite",
     response_mime_type: str = "application/json",
 ):
     genai = _get_api_configured()
     return genai.GenerativeModel(
         model_name,
-        generation_config={"response_mime_type": response_mime_type},
+        generation_config={
+            "response_mime_type": response_mime_type,
+            "temperature": 0.0  # Force deterministic extraction
+        },
     )
+
+@lru_cache(maxsize=None)
+def _get_openai_configured():
+    load_backend_env()
+    import openai
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY is not set.")
+    return openai.OpenAI(api_key=api_key)
 
 def safe_generate_content(
     prompt: str,
-    models: Optional[List[str]] = None,
+    model_name: str = "gemini-2.5-flash-lite",
     max_retries: int = 3,
     initial_delay: float = 1.0
 ) -> str:
     """
-    Generates content with automatic fallback (Toggle Mode) and exponential backoff.
-    Primary: gemini-1.5-flash (High Quota)
-    Secondary: gemini-2.0-flash-exp or gemini-1.5-pro
+    Generates content with exponential backoff using a single AI model (Gemini or OpenAI).
     """
-    if models is None:
-        models = [
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash-8b",
-            "gemini-1.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-pro-latest",
-            "gemini-1.0-pro"
-        ]
-    
     current_delay = initial_delay
+    is_openai = model_name.startswith("gpt-") or model_name.startswith("o1-") or model_name.startswith("o3-")
     
-    for model_name in models:
-        for attempt in range(max_retries):
-            try:
+    for attempt in range(max_retries):
+        try:
+            if is_openai:
+                client = _get_openai_configured()
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0  # Force deterministic extraction
+                )
+                if response and response.choices and response.choices[0].message.content:
+                    logger.info(f"Successfully generated content using {model_name}")
+                    return response.choices[0].message.content
+                raise ValueError(f"Empty response from {model_name}")
+            else:
                 model = get_generative_model(model_name)
                 response = model.generate_content(prompt)
                 if response and response.text:
                     logger.info(f"Successfully generated content using {model_name}")
                     return response.text
                 raise ValueError(f"Empty response from {model_name}")
+        
+        except Exception as e:
+            logger.warning(f"Attempt {attempt + 1} failed for {model_name}: {e}")
             
-            except Exception as e:
-                error_msg = str(e).lower()
-                is_quota_error = "429" in error_msg or "resource_exhausted" in error_msg
-                
-                logger.warning(f"Attempt {attempt + 1} failed for {model_name}: {e}")
-                
-                if attempt < max_retries - 1:
-                    time.sleep(current_delay)
-                    current_delay *= 2 # Exponential backoff
-                    continue
-                else:
-                    logger.error(f"Model {model_name} exhausted. Switching to fallback...")
-                    break # Try next model
+            if attempt < max_retries - 1:
+                time.sleep(current_delay)
+                current_delay *= 2 # Exponential backoff
+                continue
+            else:
+                logger.error(f"Model {model_name} exhausted after {max_retries} attempts.")
+                break
     
-    raise Exception("All AI models and retries exhausted. Please check your API quota.")
+    raise Exception(f"Failed to generate content with {model_name}. Please check your API quota or input.")
 
 @lru_cache(maxsize=None)
 def get_sentence_transformer(model_name: str = "all-MiniLM-L6-v2"):

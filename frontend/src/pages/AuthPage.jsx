@@ -69,28 +69,14 @@ export default function AuthPage({ mode, onSuccess }) {
       {/* ── Cinematic Background ── */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F1A] via-[#080B14] to-[#03060D]" />
-        {/* Animated orbs */}
-        <Motion.div animate={{ x: [0,40,0], y: [0,-20,0] }} transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[-15%] left-[-10%] w-[55vw] h-[55vw] rounded-full bg-gradient-to-br from-[#5B8CFF]/8 to-transparent blur-[130px]" />
-        <Motion.div animate={{ x: [0,-50,0], y: [0,40,0] }} transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-[-20%] right-[-15%] w-[65vw] h-[65vw] rounded-full bg-gradient-to-tl from-[#8A2BE2]/8 to-transparent blur-[160px]" />
+        {/* Static orbs (Optimized) */}
+        <div className="absolute top-[-15%] left-[-10%] w-[55vw] h-[55vw] rounded-full bg-gradient-to-br from-[#5B8CFF]/8 to-transparent blur-[130px]" />
+        <div className="absolute bottom-[-20%] right-[-15%] w-[65vw] h-[65vw] rounded-full bg-gradient-to-tl from-[#8A2BE2]/8 to-transparent blur-[160px]" />
         {/* Grid */}
         <div className="absolute inset-0 opacity-[0.025]" style={{
           backgroundImage: "linear-gradient(rgba(91,140,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(91,140,255,0.5) 1px,transparent 1px)",
           backgroundSize: "60px 60px"
         }} />
-        {/* Animated wave lines */}
-        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.07 }} aria-hidden>
-          <path d="M-100 300 Q200 250 500 300 T1100 280 T1700 300" fill="none" stroke="#5B8CFF" strokeWidth="1.5">
-            <animateTransform attributeName="transform" type="translate" values="0 0;0 -20;0 0" dur="8s" repeatCount="indefinite" />
-          </path>
-          <path d="M-100 500 Q200 460 500 500 T1100 480 T1700 500" fill="none" stroke="#8A2BE2" strokeWidth="1">
-            <animateTransform attributeName="transform" type="translate" values="0 0;0 15;0 0" dur="11s" repeatCount="indefinite" />
-          </path>
-          <path d="M-100 700 Q200 670 500 700 T1100 680 T1700 700" fill="none" stroke="#5B8CFF" strokeWidth="1">
-            <animateTransform attributeName="transform" type="translate" values="0 0;0 -10;0 0" dur="14s" repeatCount="indefinite" />
-          </path>
-        </svg>
       </div>
 
       {/* ── LEFT PANEL — Holographic Figure ── */}

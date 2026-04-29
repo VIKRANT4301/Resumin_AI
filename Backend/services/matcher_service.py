@@ -488,11 +488,9 @@ def parse_job_description(job_text: str) -> dict:
 
     payload = {}
     try:
-        response = _get_job_model().generate_content(
-            f"{JOB_PROMPT}\n\nJOB_DESCRIPTION:\n{job_text}",
-            generation_config={"temperature": 0.1},
-        )
-        payload = json.loads(clean_json(response.text))
+        from services.ai_runtime import safe_generate_content
+        response_text = safe_generate_content(f"{JOB_PROMPT}\n\nJOB_DESCRIPTION:\n{job_text}")
+        payload = json.loads(clean_json(response_text))
     except Exception as exc:
         print(f"Job parsing fallback enabled: {exc}")
         payload = _fallback_job_payload(job_text)

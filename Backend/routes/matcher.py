@@ -7,6 +7,35 @@ import math
 from xml.etree import ElementTree
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel
+from typing import Any, List, Union, Optional
+
+class LoginRequest(BaseModel):
+    email: str = ""
+    password: str = ""
+
+class RecruiterFindRequest(BaseModel):
+    job_input: str
+    top_k: int = 10
+    action_state: Any = None
+
+class JobRequest(BaseModel):
+    title: Optional[str] = None
+    required_skills: Optional[Union[List[str], str]] = None
+    experience_level: Optional[str] = None
+    salary_range: Optional[str] = None
+    description: Optional[str] = None
+
+class RecruiterActionRequest(BaseModel):
+    action: str
+    candidate_email: str = ""
+    candidate_key: str = ""
+    job_key: str = ""
+    role_name: str = "Target Role"
+    candidate_name: str = "Candidate"
+    reason: str = ""
+    strengths: List[str] = []
+    next_step: str = ""
 
 from services.candidate_store import (
     delete_match_runs_for_candidate,
@@ -602,12 +631,11 @@ async def match_single_resume(file: UploadFile = File(...), job_input: str = For
 
 
 @router.post("/recruiter-find")
-async def recruiter_find(request: Request):
+async def recruiter_find(request: Request, payload: RecruiterFindRequest):
     _require_session(request, {"recruiter"})
-    body = await request.json()
-    job_input = str(body.get("job_input") or "").strip()
-    top_k = max(1, min(100, int(body.get("top_k", 10) or 10)))
-    action_state = body.get("action_state")
+    job_input = payload.job_input.strip()
+    top_k = max(1, min(100, payload.top_k))
+    action_state = payload.action_state
 
     if not job_input:
         return _error("Job description is required")
@@ -637,18 +665,17 @@ async def recruiter_jobs(request: Request):
 
 
 @router.post("/jobs")
-async def create_recruiter_job(request: Request):
+async def create_recruiter_job(request: Request, payload: JobRequest):
     session = _require_session(request, {"recruiter"})
-    body = await request.json()
     try:
         job = save_recruiter_job(
             {
                 "recruiter_email": session["user"].get("email", ""),
-                "title": body.get("title", ""),
-                "required_skills": _normalize_required_skills(body.get("required_skills", [])),
-                "experience_level": body.get("experience_level", ""),
-                "salary_range": body.get("salary_range", ""),
-                "description": body.get("description", ""),
+                "title": payload.title or "",
+                "required_skills": _normalize_required_skills(payload.required_skills) if payload.required_skills else [],
+                "experience_level": payload.experience_level or "",
+                "salary_range": payload.salary_range or "",
+                "description": payload.description or "",
             }
         )
         return {"status": "success", "job": job}
@@ -657,23 +684,22 @@ async def create_recruiter_job(request: Request):
 
 
 @router.put("/jobs/{job_key}")
-async def update_recruiter_job(job_key: str, request: Request):
+async def update_recruiter_job(job_key: str, request: Request, payload: JobRequest):
     session = _require_session(request, {"recruiter"})
     existing = get_recruiter_job(job_key, session["user"].get("email", ""))
     if not existing:
         raise HTTPException(status_code=404, detail="Job post not found")
 
-    body = await request.json()
     try:
         job = save_recruiter_job(
             {
                 "job_key": job_key,
                 "recruiter_email": session["user"].get("email", ""),
-                "title": body.get("title", existing.get("title", "")),
-                "required_skills": _normalize_required_skills(body.get("required_skills", existing.get("required_skills", []))),
-                "experience_level": body.get("experience_level", existing.get("experience_level", "")),
-                "salary_range": body.get("salary_range", existing.get("salary_range", "")),
-                "description": body.get("description", existing.get("description", "")),
+                "title": payload.title if payload.title is not None else existing.get("title", ""),
+                "required_skills": _normalize_required_skills(payload.required_skills) if payload.required_skills is not None else existing.get("required_skills", []),
+                "experience_level": payload.experience_level if payload.experience_level is not None else existing.get("experience_level", ""),
+                "salary_range": payload.salary_range if payload.salary_range is not None else existing.get("salary_range", ""),
+                "description": payload.description if payload.description is not None else existing.get("description", ""),
             }
         )
         return {"status": "success", "job": job}
@@ -797,24 +823,24 @@ async def dashboard(request: Request):
 
 
 @router.post("/recruiter/actions")
-async def recruiter_action(request: Request):
+async def recruiter_action(request: Request, payload: RecruiterActionRequest):
     session = _require_session(request, {"recruiter"})
-    body = await request.json()
 
-    action = str(body.get("action") or "").strip().lower()
+    action = payload.action.strip().lower()
     if action not in {"shortlisted", "rejected", "saved", "liked", "disliked"}:
         return _error("Valid recruiter action is required")
 
-    candidate_email = str(body.get("candidate_email") or "").strip().lower()
-    candidate_key = str(body.get("candidate_key") or "").strip()
+    candidate_email = payload.candidate_email.strip().lower()
+    candidate_key = payload.candidate_key.strip()
     recruiter_email = session["user"].get("email", "")
-    job_key = str(body.get("job_key") or "").strip()
-    role_name = str(body.get("role_name") or "Target Role").strip()
-    candidate_name = str(body.get("candidate_name") or "Candidate").strip()
-    reason = str(body.get("reason") or "").strip()
-    strengths = [str(item).strip() for item in (body.get("strengths") or []) if str(item).strip()]
-    next_step = str(body.get("next_step") or "").strip()
+    job_key = payload.job_key.strip()
+    role_name = payload.role_name.strip()
+    candidate_name = payload.candidate_name.strip()
+    reason = payload.reason.strip()
+    strengths = [str(item).strip() for item in payload.strengths if str(item).strip()]
+    next_step = payload.next_step.strip()
 
+    body = payload.dict()
     email_event = None
     email_status = ""
     if action == "shortlisted" and candidate_email:
@@ -944,10 +970,9 @@ async def register_user(
 
 
 @router.post("/auth/login")
-async def login_user(request: Request):
-    body = await request.json()
-    email = str(body.get("email") or "").strip().lower()
-    password = str(body.get("password") or "")
+async def login_user(login_data: LoginRequest):
+    email = login_data.email.strip().lower()
+    password = login_data.password
 
     if not email or not password:
         return _error("Email and password are required")
@@ -1003,8 +1028,8 @@ async def register_profile(
 
 
 @router.post("/profile/login")
-async def login_profile(request: Request):
-    return await login_user(request)
+async def login_profile(login_data: LoginRequest):
+    return await login_user(login_data)
 
 
 @router.post("/profile/match")

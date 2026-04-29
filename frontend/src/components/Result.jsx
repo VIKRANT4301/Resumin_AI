@@ -407,8 +407,8 @@ function BlueprintTabs({ groups }) {
             type="button"
             onClick={() => setActive(group.label)}
             className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${current?.label === group.label
-                ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-100"
-                : "border-white/8 bg-white/[0.03] text-stone-400 hover:text-white"
+              ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-100"
+              : "border-white/8 bg-white/[0.03] text-stone-400 hover:text-white"
               }`}
           >
             {group.label}
@@ -519,7 +519,7 @@ function ActionableRecommendation({ item }) {
   const handleRewrite = () => {
     setLoading(true);
     setTimeout(() => {
-      setVariant(`[A/B Variant]: To excel in this target, proactively expand your scope on ${String(item).split(' ').slice(0,4).join(' ')}... Ensure you track metrics like latency, engagement, or scale to prove impact.`);
+      setVariant(`[A/B Variant]: To excel in this target, proactively expand your scope on ${String(item).split(' ').slice(0, 4).join(' ')}... Ensure you track metrics like latency, engagement, or scale to prove impact.`);
       setLoading(false);
     }, 800);
   };
@@ -529,10 +529,10 @@ function ActionableRecommendation({ item }) {
       <p className="text-sm leading-6 text-cyan-50">{variant || item}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" onClick={handleRewrite} disabled={loading} className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-white/5 border border-white/10 rounded-full text-stone-300 hover:bg-white/10 transition">
-           {loading ? "Generating..." : "Generate Custom Bullet"}
+          {loading ? "Generating..." : "Generate Custom Bullet"}
         </button>
         <button type="button" onClick={handleCopy} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border rounded-full transition ${copied ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-200 hover:bg-cyan-500/20'}`}>
-           {copied ? "Copied!" : "Copy to Clipboard"}
+          {copied ? "Copied!" : "Copy to Clipboard"}
         </button>
       </div>
     </div>
@@ -1030,10 +1030,10 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
             </div>
 
             <div className={`mt-6 inline-flex rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] ${verdict.tone === "good"
-                ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
-                : verdict.tone === "warn"
-                  ? "border border-amber-500/20 bg-amber-500/10 text-amber-100"
-                  : "border border-rose-500/20 bg-rose-500/10 text-rose-100"
+              ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
+              : verdict.tone === "warn"
+                ? "border border-amber-500/20 bg-amber-500/10 text-amber-100"
+                : "border border-rose-500/20 bg-rose-500/10 text-rose-100"
               }`}>
               {verdict.label}
             </div>
@@ -1238,11 +1238,7 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
           <div className="space-y-4">
             {aiBullets.slice(0, 4).map((bullet, i) => (
               <div key={i} className="rounded-[1.4rem] border border-white/8 bg-white/[0.02] overflow-hidden">
-                <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/8">
-                  <div className="p-4">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">Before</p>
-                    <p className="text-sm leading-6 text-stone-400 line-through opacity-70">{bullet.before}</p>
-                  </div>
+                <div className="flex flex-col">
                   <div className="p-4 bg-emerald-500/[0.04]">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">After (AI Rewrite)</p>
                     <p className="text-sm leading-6 text-emerald-50">{bullet.after}</p>
@@ -1355,10 +1351,10 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-bold text-rose-50">{item.label}</p>
                   <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${item.severity === "High"
-                      ? "border border-rose-400/40 bg-rose-500/20 text-rose-100"
-                      : item.severity === "Medium"
-                        ? "border border-amber-400/40 bg-amber-500/20 text-amber-100"
-                        : "border border-cyan-400/40 bg-cyan-500/20 text-cyan-100"
+                    ? "border border-rose-400/40 bg-rose-500/20 text-rose-100"
+                    : item.severity === "Medium"
+                      ? "border border-amber-400/40 bg-amber-500/20 text-amber-100"
+                      : "border border-cyan-400/40 bg-cyan-500/20 text-cyan-100"
                     }`}>
                     {item.severity}
                   </span>
@@ -1468,79 +1464,87 @@ export default function Result({ mode = "candidate", data = {}, resume = {}, fee
         <InsightList items={hiddenIntelligence} emptyText="No additional strategic intelligence generated yet." tone="amber" />
       </SectionCard>
 
-      <SectionCard title="Preparation Hub" icon={BookOpen}>
-        <div className="space-y-4">
-          <div className="rounded-[1.3rem] border border-cyan-500/20 bg-cyan-500/8 p-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Reference Model</p>
-            <p className="mt-2 text-sm leading-6 text-cyan-50">
-              Structured using roadmap-style learning paths so each weakness maps to a clear sequence: learn fundamentals, build proof, then prepare for interviews.
+      {aiPrep.length > 0 ? (
+        <section className="rounded-[2.2rem] border border-cyan-500/15 bg-[linear-gradient(135deg,rgba(14,18,30,0.97),rgba(12,16,26,0.96))] p-6 sm:p-8 shadow-[0_12px_48px_rgba(89,208,222,0.08)] relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(89,208,222,0.07),transparent_55%)]" />
+          <div className="relative">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300 mb-3">
+              <BookOpen size={14} />
+              Preparation Hub
+            </div>
+            <p className="mb-6 text-sm leading-6 text-stone-300 max-w-3xl">
+              A precise, action-oriented roadmap designed to eliminate your specific skill gaps and elevate your profile to premium hireable status.
             </p>
-          </div>
-          {preparationHubItems.map((item) => (
-            <div key={item.skill} className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-black text-white">{item.skill}</p>
-                <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-100">
-                  {item.urgency}
-                </span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-stone-300">{item.whyItMatters}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <a
-                  href={item.roadmapUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100 hover:bg-cyan-500/20"
-                >
-                  Roadmap Track <ExternalLink size={10} className="ml-1 inline" />
-                </a>
-                {(item.resources || [])
-                  .filter((resource) => resource.category === "Practical Learning")
-                  .slice(0, 1)
-                  .map((resource) => (
-                    <a
-                      key={`${item.skill}-project-${resource.url}`}
-                      href={resource.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100 hover:bg-emerald-500/20"
-                    >
-                      Start Project <ExternalLink size={10} className="ml-1 inline" />
-                    </a>
-                  ))}
-              </div>
-              <div className="mt-3 rounded-[1.2rem] border border-white/8 bg-[#120f0d]/65 p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">90-Minute Start Plan</p>
-                <div className="mt-2 space-y-2">
-                  {(item.trackPlan || []).map((step) => (
-                    <p key={`${item.skill}-${step}`} className="text-xs leading-6 text-stone-300">{step}</p>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {["Official Learning", "Practical Learning", "Interview Preparation", "Portfolio Resources", "Market Alignment"].map((category) => (
-                  <div key={`${item.skill}-${category}`} className="rounded-[1.2rem] border border-white/8 bg-[#120f0d]/65 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">{category}</p>
-                    <div className="mt-2 space-y-2">
-                      {item.resources.filter((resource) => resource.category === category).slice(0, 3).map((resource) => (
-                        <a
-                          key={`${item.skill}-${category}-${resource.url}`}
-                          href={resource.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs leading-5 text-cyan-100 hover:bg-cyan-500/20"
-                        >
-                          {resource.title} <ExternalLink size={11} className="ml-1 inline" />
-                        </a>
-                      ))}
+
+            <div className="space-y-6">
+              {aiPrep.map((plan, i) => (
+                <div key={i} className="rounded-[1.6rem] border border-white/8 bg-white/[0.02] p-5 lg:p-6 overflow-hidden">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300">
+                      <Target size={14} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">Addressing Gap</p>
+                      <p className="text-lg font-black text-white">{plan.weakness}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                  
+                  {/* Timeline Roadmap */}
+                  <div className="grid gap-4 lg:grid-cols-3 mb-6">
+                    <div className="rounded-[1.2rem] border border-emerald-500/15 bg-emerald-500/5 p-5 relative overflow-hidden transition-all hover:bg-emerald-500/10">
+                      <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/10 blur-xl rounded-full" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300 mb-3">7-Day Fix</p>
+                      <p className="text-sm leading-6 text-stone-200">{plan.fix_7_day}</p>
+                    </div>
+                    <div className="rounded-[1.2rem] border border-cyan-500/15 bg-cyan-500/5 p-5 relative overflow-hidden transition-all hover:bg-cyan-500/10">
+                      <div className="absolute -right-4 -top-4 w-16 h-16 bg-cyan-500/10 blur-xl rounded-full" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300 mb-3">30-Day Upgrade</p>
+                      <p className="text-sm leading-6 text-stone-200">{plan.upgrade_30_day}</p>
+                    </div>
+                    <div className="rounded-[1.2rem] border border-amber-500/15 bg-amber-500/5 p-5 relative overflow-hidden transition-all hover:bg-amber-500/10">
+                      <div className="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/10 blur-xl rounded-full" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300 mb-3">90-Day Leap</p>
+                      <p className="text-sm leading-6 text-stone-200">{plan.career_leap_90_day}</p>
+                    </div>
+                  </div>
+
+                  {/* Strategic Execution Grid */}
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 hover:border-white/15 transition-all">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 mb-2">High-ROI Project</p>
+                      <p className="text-xs leading-5 text-stone-300">{plan.best_project}</p>
+                    </div>
+                    <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 hover:border-white/15 transition-all">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 mb-2">Portfolio Proof</p>
+                      <p className="text-xs leading-5 text-stone-300">{plan.best_portfolio_proof}</p>
+                    </div>
+                    <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 hover:border-white/15 transition-all">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 mb-2">Interview Narrative</p>
+                      <p className="text-xs leading-5 text-stone-300">{plan.interview_narrative}</p>
+                    </div>
+                    <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 hover:border-white/15 transition-all">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 mb-2">LinkedIn Branding</p>
+                      <p className="text-xs leading-5 text-stone-300">{plan.linkedin_branding}</p>
+                    </div>
+                  </div>
+
+                  {plan.best_certification && (
+                    <div className="mt-3 rounded-[1.2rem] border border-cyan-500/10 bg-cyan-500/5 p-4 flex items-center justify-between gap-4">
+                       <div>
+                         <p className="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-500/70 mb-1">Top Certification Endorsement</p>
+                         <p className="text-xs font-black text-cyan-100">{plan.best_certification}</p>
+                       </div>
+                       <div className="h-8 w-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-300">
+                         <ShieldCheck size={14} />
+                       </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </SectionCard>
+          </div>
+        </section>
+      ) : null}
 
       <SectionCard title="Skill Coverage Map" icon={GitBranch}>
         <p className="mb-4 text-sm leading-6 text-stone-400">

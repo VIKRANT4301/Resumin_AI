@@ -104,8 +104,8 @@ export default function SkillChart({ scores, matchResult = null }) {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="relative w-full h-[400px] md:h-[500px] overflow-hidden rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(18,15,12,0.88),rgba(14,11,9,0.8))] p-4">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="relative min-w-0 min-h-[400px] w-full h-[400px] md:h-[500px] overflow-hidden rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(18,15,12,0.88),rgba(14,11,9,0.8))] p-4">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <PieChart>
             <Pie
               data={data}

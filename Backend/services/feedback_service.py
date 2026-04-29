@@ -1750,7 +1750,32 @@ Return ONLY valid JSON matching this exact schema:
     "missing_metrics": ["(what to quantify that's currently vague)"],
     "interview_narrative": ["(specific STAR story to prepare based on projects)"],
     "salary_upside_opportunity": "(how much salary increase is possible with fixes)"
-  }}
+  }},
+  "strength_signals": ["(specific signal of strength from resume)"],
+  "risk_signals": [
+    {{
+      "title": "(risk title)",
+      "severity": "(High | Medium | Low)",
+      "explanation": "(why it is a risk)"
+    }}
+  ],
+  "evidence_highlights": [
+    {{
+      "relevance": "(skill name)",
+      "project_or_context": "(where they used it)",
+      "action": "(what they did)",
+      "impact": "(what happened)"
+    }}
+  ],
+  "improvements": ["(actionable improvement tip)"],
+  "additional_value_for_candidate": [
+    {{
+      "area": "(area for improvement)",
+      "action": "(specific action to take)"
+    }}
+  ],
+  "missing_skills": ["(missing skill)"],
+  "strengths": ["(strength)"]
 }}
 
 RESUME DATA:
@@ -1797,4 +1822,11 @@ RESUME DATA:
             "preparation_hub": [],
             "skill_coverage_map": {"resume_skills_detected": matched_skills[:8], "market_expected_skills": [], "missing_competitive_skills": missing_required[:5], "semantic_match_percent": overall_score, "skill_depth_percent": 0, "skill_proof_percent": 0, "ats_match_percent": 0, "differentiation_score": 0},
             "hirable_acceleration": {"project_roi": [], "bullet_rewrites": [], "missing_metrics": [], "interview_narrative": [], "salary_upside_opportunity": ""},
+            "strength_signals": ["Strong foundation in core technical competencies.", "Demonstrated capability in project execution."],
+            "risk_signals": [{"title": "Missing Proof", "severity": "High", "explanation": "Lack of quantified evidence for required skills."}],
+            "evidence_highlights": [{"relevance": matched_skills[0] if matched_skills else "General", "project_or_context": "Previous roles", "action": "Applied technical skills", "impact": "Contributed to team goals"}],
+            "improvements": ["Add specific metrics to project descriptions.", "Highlight cross-functional collaboration."],
+            "additional_value_for_candidate": [{"area": "Portfolio", "action": "Add a link to a live project demonstrating core skills."}],
+            "missing_skills": missing_required[:5],
+            "strengths": matched_skills[:5],
         }

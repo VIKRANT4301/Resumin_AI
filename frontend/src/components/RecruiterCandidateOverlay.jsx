@@ -391,11 +391,7 @@ export default function RecruiterCandidateOverlay({ open, onClose, item, topCand
                     <div className="space-y-3">
                       {item.aiBullets.slice(0, 3).map((b, i) => (
                         <div key={i} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-                          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.06]">
-                            <div className="p-4">
-                              <p className="text-[9px] font-black uppercase tracking-wider text-rose-400 mb-1">Before</p>
-                              <p className="text-xs leading-5 text-stone-500 line-through">{b.before}</p>
-                            </div>
+                          <div className="flex flex-col">
                             <div className="p-4 bg-emerald-500/[0.03]">
                               <p className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mb-1">AI Rewrite</p>
                               <p className="text-xs leading-5 text-emerald-100">{b.after}</p>

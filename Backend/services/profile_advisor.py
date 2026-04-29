@@ -62,11 +62,9 @@ PROFILE:
 RESUME:
 {json.dumps(resume, ensure_ascii=True)[:7000]}
 """
-        response = get_generative_model("gemini-2.5-flash-lite", "application/json").generate_content(
-            prompt,
-            generation_config={"temperature": 0.2},
-        )
-        parsed = json.loads(clean_json(response.text))
+        from services.ai_runtime import safe_generate_content
+        response_text = safe_generate_content(prompt)
+        parsed = json.loads(clean_json(response_text))
 
         def _list_value(key: str, default: list[str]) -> list[str]:
             value = parsed.get(key, [])

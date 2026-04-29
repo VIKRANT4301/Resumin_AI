@@ -15,6 +15,23 @@ app = FastAPI(
     version="3.0.0",
 )
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import logging
+
+logging.basicConfig(
+    level=logging.INFO if os.environ.get("ENV") != "development" else logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger(__name__)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Global exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": "An internal server error occurred", "detail": str(exc) if os.environ.get("ENV") == "development" else "Server error"},
+    )
+
 frontend_url = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
 origins = [
     "http://localhost:5173",
