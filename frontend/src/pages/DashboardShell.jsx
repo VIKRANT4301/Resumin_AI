@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import GeometricBackground from "../components/GeometricBackground";
-import { 
-  BrainCircuit, 
+import {
+  BrainCircuit,
   LogOut,
   BarChart3,
   Briefcase,
@@ -115,9 +115,8 @@ export default function DashboardShell({ session, setSession, candidateView, rec
               key={item.name}
               type="button"
               onClick={() => { setActiveSection(item.name); setSidebarOpen(false); }}
-              className={`relative flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-bold transition-all group ${
-                isActive ? "text-[var(--text-main)]" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-              }`}
+              className={`relative flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-bold transition-all group ${isActive ? "text-[var(--text-main)]" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                }`}
             >
               {isActive && (
                 <div
@@ -185,108 +184,108 @@ export default function DashboardShell({ session, setSession, candidateView, rec
 
   return (
     <GeometricBackground>
-    <div className="flex h-screen overflow-hidden bg-transparent">
+      <div className="flex h-screen overflow-hidden bg-transparent">
 
-      {/* Mobile overlay */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <Motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Desktop Sidebar */}
-      <aside className="relative z-10 hidden lg:flex w-72 flex-col border-r border-[var(--glass-border)] bg-[var(--surface-0)] backdrop-blur-2xl bg-opacity-80">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile Drawer */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <Motion.aside
-            initial={{ x: -300 }}
-            animate={{ x: 0 }}
-            exit={{ x: -300 }}
-            transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-[var(--glass-border)] bg-[var(--surface-0)] backdrop-blur-3xl lg:hidden"
-          >
-            <SidebarContent />
-          </Motion.aside>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <div className="relative z-10 flex flex-1 flex-col min-w-0">
-        
-        {/* Top Navbar */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-[var(--glass-border)] bg-[var(--surface-0)]/80 backdrop-blur-2xl px-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden w-10 h-10 rounded-xl border border-[var(--glass-border)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
-            >
-              <Menu size={18} />
-            </button>
-            <div>
-              <h1 className="text-lg font-black text-[var(--text-main)] tracking-tight hidden sm:block">Candidate Workspace</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={14} />
-              <input
-                type="text"
-                placeholder="Search jobs, skills..."
-                className="w-64 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] py-2.5 pl-10 pr-4 text-sm text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:border-[#f5bd4e]/30 focus:bg-[#f5bd4e]/5 focus:outline-none transition-all"
-              />
-            </div>
-            
-            {/* Theme Toggle */}
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="relative w-10 h-10 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-[var(--glass-border-hover)] transition"
-              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
-            <button className="relative w-10 h-10 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-[var(--glass-border-hover)] transition">
-              <Bell size={16} />
-            </button>
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white cursor-pointer"
-              style={{ background: "linear-gradient(135deg, #f5bd4e, #e07b39)" }}
-            >
-              {userInitial}
-            </div>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <main className="flex-1 overflow-y-auto px-4 py-8 sm:px-8">
-          <AnimatePresence mode="wait">
+        {/* Mobile overlay */}
+        <AnimatePresence>
+          {sidebarOpen && (
             <Motion.div
-              key={role}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35 }}
-              className="mx-auto max-w-7xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Desktop Sidebar */}
+        <aside className="relative z-10 hidden lg:flex w-72 flex-col border-r border-[var(--glass-border)] bg-[var(--surface-0)] backdrop-blur-2xl bg-opacity-80">
+          <SidebarContent />
+        </aside>
+
+        {/* Mobile Drawer */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <Motion.aside
+              initial={{ x: -300 }}
+              animate={{ x: 0 }}
+              exit={{ x: -300 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-[var(--glass-border)] bg-[var(--surface-0)] backdrop-blur-3xl lg:hidden"
             >
-              {role === "recruiter"
-                ? recruiterView({ api, onAuthError: handleAuthError })
-                : candidateView({ api, onAuthError: handleAuthError, activeSection, onSectionChange: setActiveSection })}
-            </Motion.div>
-          </AnimatePresence>
-        </main>
+              <SidebarContent />
+            </Motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* Main Content */}
+        <div className="relative z-10 flex flex-1 flex-col min-w-0">
+
+          {/* Top Navbar */}
+          <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-[var(--glass-border)] bg-[var(--surface-0)]/80 backdrop-blur-2xl px-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden w-10 h-10 rounded-xl border border-[var(--glass-border)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+              >
+                <Menu size={18} />
+              </button>
+              <div>
+                <h1 className="text-lg font-black text-[var(--text-main)] tracking-tight hidden sm:block">Candidate Workspace</h1>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative hidden md:block">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={14} />
+                <input
+                  type="text"
+                  placeholder="Search jobs, skills..."
+                  className="w-64 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] py-2.5 pl-10 pr-4 text-sm text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:border-[#f5bd4e]/30 focus:bg-[#f5bd4e]/5 focus:outline-none transition-all"
+                />
+              </div>
+
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="relative w-10 h-10 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-[var(--glass-border-hover)] transition"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+
+              <button className="relative w-10 h-10 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-[var(--glass-border-hover)] transition">
+                <Bell size={16} />
+              </button>
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #f5bd4e, #e07b39)" }}
+              >
+                {userInitial}
+              </div>
+            </div>
+          </header>
+
+          {/* Dashboard Content */}
+          <main className="flex-1 overflow-y-auto px-4 py-8 sm:px-8">
+            <AnimatePresence mode="wait">
+              <Motion.div
+                key={role}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+                className="mx-auto max-w-7xl"
+              >
+                {role === "recruiter"
+                  ? recruiterView({ api, onAuthError: handleAuthError })
+                  : candidateView({ api, onAuthError: handleAuthError, activeSection, onSectionChange: setActiveSection })}
+              </Motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
       </div>
-    </div>
     </GeometricBackground>
   );
 }

@@ -12,14 +12,11 @@ Your job is to read raw resume text and convert it into a rich, normalized JSON 
 Rules:
 - Return ONLY valid JSON. No markdown, no comments, no explanations.
 - Use only information explicitly present in the resume text.
-- Standardize the structure even if the resume layout is messy.
 - Deduplicate skills, certifications, and repeated entries.
-- Keep concise, recruiter-friendly technology names in skills.
-- Keep arrays even when empty. Use empty strings for missing scalar fields.
-- For github_url and linkedin_url: extract the full URL if present, else empty string.
-- For years_of_experience: compute total from all date ranges (e.g. "Jan 2021 - Dec 2023" = 2 years). Estimate 0 if no dates.
-- For languages: only spoken/written languages (e.g. English, Hindi), NOT programming languages.
-- For achievements: extract quantified results like percentages, user counts, speed improvements. Max 5.
+- For years_of_experience: compute total from all date ranges.
+- For achievements: extract QUANTIFIED results (e.g., "Increased revenue by 20%", "Reduced latency by 50ms").
+- For projects: identify the technical complexity and your specific role/impact.
+- Standardize technology names (e.g., "React.js" -> "React").
 
 Required JSON schema:
 {
@@ -40,7 +37,8 @@ Required JSON schema:
       "company": "",
       "period": "",
       "location": "",
-      "description": ""
+      "description": "",
+      "core_tech": [""]
     }
   ],
   "education": [
@@ -58,7 +56,8 @@ Required JSON schema:
       "description": "",
       "technologies": [""],
       "url": "",
-      "impact": ""
+      "impact_summary": "",
+      "complexity_level": "Low/Medium/High"
     }
   ],
   "certifications": [""]
@@ -301,13 +300,27 @@ def _normalize_resume_payload(data: dict, filename: str) -> dict:
     skills = _normalize_string_list(data.get("skills", []))
     experience = _normalize_object_list(
         data.get("experience", []),
-        ["title", "company", "period", "location", "description"],
+        ["title", "company", "period", "location", "description", "core_tech"],
     )
     education = _normalize_object_list(
         data.get("education", []),
         ["degree", "institution", "year", "gpa", "details"],
     )
-    projects = _normalize_projects(data.get("projects", []))
+    
+    # Custom normalization for projects with new fields
+    raw_projects = data.get("projects", []) or []
+    projects = []
+    for item in raw_projects:
+        if not isinstance(item, dict):
+            continue
+        projects.append({
+            "name": _normalize_text(item.get("name")),
+            "description": _normalize_text(item.get("description")),
+            "technologies": _normalize_string_list(item.get("technologies", [])),
+            "impact_summary": _normalize_text(item.get("impact_summary") or item.get("impact")),
+            "complexity_level": _normalize_text(item.get("complexity_level", "Medium")),
+        })
+
     certifications = _normalize_string_list(data.get("certifications", []))
     languages = _normalize_string_list(data.get("languages", []))
     achievements = _normalize_string_list(data.get("achievements", []))

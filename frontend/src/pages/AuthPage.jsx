@@ -11,9 +11,9 @@ import { navigate } from "../utils/navigation";
 import HolographicFigure from "../components/HolographicFigure";
 
 const features = [
-  { icon: Users,       color: "#5B8CFF", label: "Smart Ranking",   desc: "AI ranks by semantic fit, not just keywords." },
-  { icon: BrainCircuit,color: "#8A2BE2", label: "Deep Intelligence",desc: "Inferred skills, trust signals, gap analysis." },
-  { icon: Layers3,     color: "#4cc890", label: "Full Workflow",    desc: "Job post to shortlist — one cohesive platform." },
+  { icon: Users, color: "#5B8CFF", label: "Smart Ranking", desc: "AI ranks by semantic fit, not just keywords." },
+  { icon: BrainCircuit, color: "#8A2BE2", label: "Deep Intelligence", desc: "Inferred skills, trust signals, gap analysis." },
+  { icon: Layers3, color: "#4cc890", label: "Full Workflow", desc: "Job post to shortlist — one cohesive platform." },
   { icon: ShieldCheck, color: "#f5bd4e", label: "Enterprise Ready", desc: "Secure auth, role-based access, audit trails." },
 ];
 
@@ -31,11 +31,11 @@ function PremiumInput({ label, type = "text", value, onChange, placeholder }) {
 
 export default function AuthPage({ mode, onSuccess }) {
   const isSignUp = mode === "signup";
-  const [role, setRole]           = useState("candidate");
-  const [form, setForm]           = useState({ name: "", email: "", password: "", phone: "", location: "", current_title: "", target_title: "" });
+  const [role, setRole] = useState("candidate");
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", location: "", current_title: "", target_title: "" });
   const [resumeFile, setResumeFile] = useState(null);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const update = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
@@ -65,7 +65,7 @@ export default function AuthPage({ mode, onSuccess }) {
 
   return (
     <div className="relative min-h-screen w-full bg-[#03060D] overflow-hidden flex">
-      
+
       {/* ── Cinematic Background ── */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F1A] via-[#080B14] to-[#03060D]" />
@@ -81,7 +81,7 @@ export default function AuthPage({ mode, onSuccess }) {
 
       {/* ── LEFT PANEL — Holographic Figure ── */}
       <div className="hidden lg:flex flex-col justify-between w-[52%] p-12 relative z-10">
-        
+
         {/* Logo */}
         <Motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
           className="flex items-center gap-3">
@@ -175,12 +175,11 @@ export default function AuthPage({ mode, onSuccess }) {
                   className="mb-5 grid grid-cols-2 gap-3">
                   {[
                     { value: "candidate", label: "Candidate", desc: "Analyze your fit", color: "#f5bd4e" },
-                    { value: "recruiter", label: "Recruiter",  desc: "Rank candidates", color: "#5B8CFF" },
+                    { value: "recruiter", label: "Recruiter", desc: "Rank candidates", color: "#5B8CFF" },
                   ].map(opt => (
                     <button key={opt.value} type="button" onClick={() => setRole(opt.value)}
-                      className={`relative rounded-2xl p-4 text-left transition-all border overflow-hidden ${
-                        role === opt.value ? "border-white/20 bg-white/5 text-white" : "border-white/5 bg-white/[0.02] text-stone-500 hover:text-stone-300 hover:border-white/10"
-                      }`}>
+                      className={`relative rounded-2xl p-4 text-left transition-all border overflow-hidden ${role === opt.value ? "border-white/20 bg-white/5 text-white" : "border-white/5 bg-white/[0.02] text-stone-500 hover:text-stone-300 hover:border-white/10"
+                        }`}>
                       {role === opt.value && (
                         <span className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: opt.color }}>
                           <Check size={10} className="text-white" strokeWidth={3} />

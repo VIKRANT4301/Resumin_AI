@@ -100,3 +100,21 @@ def safe_generate_content(
 def get_sentence_transformer(model_name: str = "all-MiniLM-L6-v2"):
     from sentence_transformers import SentenceTransformer
     return SentenceTransformer(model_name)
+
+def get_embeddings(text: str) -> List[float]:
+    """Helper to get embeddings for a piece of text."""
+    model = get_sentence_transformer()
+    embedding = model.encode(text)
+    return embedding.tolist()
+
+def cosine_similarity(v1: List[float], v2: List[float]) -> float:
+    """Helper to calculate cosine similarity between two vectors."""
+    import numpy as np
+    vec1 = np.array(v1)
+    vec2 = np.array(v2)
+    dot_product = np.dot(vec1, vec2)
+    norm_v1 = np.linalg.norm(vec1)
+    norm_v2 = np.linalg.norm(vec2)
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0.0
+    return float(dot_product / (norm_v1 * norm_v2))

@@ -5,7 +5,7 @@ from datetime import datetime
 
 import numpy as np
 
-from services.ai_runtime import get_generative_model, get_sentence_transformer
+from services.ai_runtime import get_generative_model
 from utils.cleaner import clean_json
 
 JOB_PROMPT = """
@@ -100,36 +100,7 @@ ROLE_DOMAIN_KEYWORDS = {
 MONTH_PATTERN = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*"
 
 
-class FallbackEmbedder:
-    def __init__(self, dim: int = 384):
-        self.dim = dim
 
-    def encode(self, items):
-        if isinstance(items, list):
-            return np.array([self._encode_one(item) for item in items])
-        return self._encode_one(items)
-
-    def _encode_one(self, text: str) -> np.ndarray:
-        vector = np.zeros(self.dim, dtype=float)
-        for token in re.findall(r"[a-z0-9.+#-]+", str(text or "").lower()):
-            slot = int(hashlib.sha1(token.encode("utf-8")).hexdigest(), 16) % self.dim
-            vector[slot] += 1.0
-        norm = np.linalg.norm(vector)
-        return vector / norm if norm else vector
-
-
-_EMBEDDER = None
-
-
-def _get_embedder():
-    global _EMBEDDER
-    if _EMBEDDER is None:
-        try:
-            _EMBEDDER = get_sentence_transformer("all-MiniLM-L6-v2")
-        except Exception as exc:
-            print(f"Embedding fallback enabled: {exc}")
-            _EMBEDDER = FallbackEmbedder()
-    return _EMBEDDER
 
 
 def _get_job_model():
@@ -417,12 +388,7 @@ def _months_between(start: tuple[int, int], end: tuple[int, int]) -> int:
     return max(0, ((end[0] - start[0]) * 12) + (end[1] - start[1]))
 
 
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    norm_a = float(np.linalg.norm(a))
-    norm_b = float(np.linalg.norm(b))
-    if norm_a == 0.0 or norm_b == 0.0:
-        return 0.0
-    return float(np.dot(a, b) / (norm_a * norm_b))
+
 
 
 def _parse_years_from_text(text: str) -> int:
@@ -664,74 +630,157 @@ def _score_requirements_exact(requirements: list[dict], resume: dict) -> list[di
 
 
 def _score_requirements(requirements: list[dict], evidence: list[dict], resume: dict, job: dict) -> list[dict]:
-    """Score requirements using relationship-aware and adaptive semantic matching."""
+    """Score requirements using a hybrid approach: LLM reasoning + Semantic Embedding verification."""
     if not requirements:
         return []
 
-    embedder = _get_embedder()
-    requirement_embeddings = embedder.encode([item["skill"] for item in requirements])
-    evidence_embeddings = embedder.encode([item["text"] for item in evidence])
-    inventory = _collect_candidate_skill_inventory(resume)
+    from services.ai_runtime import safe_generate_content, get_embeddings, cosine_similarity
 
-    scored = []
-    for index, requirement in enumerate(requirements):
-        relationship_match = None
-        best_relation_score = 0.0
-        for canonical, info in inventory.items():
-            relation_type, relation_score = _relationship_strength(requirement["skill"], canonical)
-            if relation_score > best_relation_score:
-                relationship_match = {
-                    "relation_type": relation_type,
-                    "relation_score": relation_score,
-                    "source": info.get("source", ""),
-                    "label": info.get("label", canonical),
-                }
-                best_relation_score = relation_score
+    # 1. Pre-calculate Semantic Similarity Scores for each requirement
+    # We compare the requirement skill against the most relevant evidence in the resume
+    evidence_texts = [e["text"] for e in evidence]
+    evidence_embeddings = []
+    try:
+        from services.ai_runtime import get_sentence_transformer
+        st_model = get_sentence_transformer()
+        evidence_embeddings = st_model.encode(evidence_texts)
+    except Exception as e:
+        print(f"Embedding generation failed: {e}")
 
-        similarities = [
-            _cosine_similarity(requirement_embeddings[index], evidence_embeddings[evidence_index])
-            for evidence_index in range(len(evidence))
-        ]
-        best_index = int(np.argmax(similarities)) if similarities else 0
-        best_score = float(similarities[best_index]) if similarities else 0.0
-        evidence_item = evidence[best_index] if similarities else {"type": "", "text": ""}
-        threshold = _adaptive_semantic_threshold(requirement, evidence_item, job)
+    semantic_verifications = {}
+    for req in requirements:
+        skill = req["skill"]
+        req_embedding = None
+        try:
+            req_embedding = st_model.encode([skill])[0]
+            # Find the best match in the evidence
+            similarities = [cosine_similarity(req_embedding.tolist(), e_emb.tolist()) for e_emb in evidence_embeddings]
+            best_sim = max(similarities) if similarities else 0.0
+            semantic_verifications[skill.lower()] = round(best_sim, 3)
+        except Exception:
+            semantic_verifications[skill.lower()] = 0.0
 
-        if relationship_match and relationship_match["relation_score"] >= max(best_score, threshold - 0.02):
-            scored.append(
-                {
-                    "skill": requirement["skill"],
-                    "canonical_skill": _canonicalize_skill(requirement["skill"]),
-                    "tier": requirement["tier"],
-                    "importance": requirement.get("importance", "core"),
-                    "weight": requirement["weight"],
-                    "similarity": round(relationship_match["relation_score"], 3),
-                    "matched": True,
-                    "match_type": "inferred",
-                    "evidence_type": relationship_match["source"],
-                    "evidence_text": relationship_match["label"],
-                    "threshold": round(threshold, 3),
-                }
-            )
-            continue
+    # 2. LLM Evaluation with stricter context
+    prompt = """
+    You are an elite technical recruiter AI designed for high-accuracy evaluation. 
+    Your task is to accurately evaluate whether a candidate's resume explicitly meets the specific required and preferred skills for a job.
+    
+    Job Domain: {job_domain}
+    Target Role: {job_role}
 
-        scored.append(
-            {
-                "skill": requirement["skill"],
-                "canonical_skill": _canonicalize_skill(requirement["skill"]),
-                "tier": requirement["tier"],
-                "importance": requirement.get("importance", "core"),
-                "weight": requirement["weight"],
-                "similarity": round(best_score, 3),
-                "matched": best_score >= threshold,
-                "match_type": "semantic" if best_score >= threshold else "no_match",
-                "evidence_type": evidence_item["type"],
-                "evidence_text": evidence_item["text"],
-                "threshold": round(threshold, 3),
-            }
-        )
+    Requirements for Evaluation:
+    {req_text}
 
-    return scored
+    Candidate Resume Context:
+    {resume_summary}
+    {resume_experience_highlights}
+
+    Instructions:
+    - For EVERY skill, analyze the resume and determine if the candidate genuinely has the skill.
+    - Be EXTREMELY STRICT. Do not assume they have a skill just because they have a related title.
+    - Hallucinating evidence or being too lenient will result in severe penalties. 
+    - Only mark as matched if you can provide solid "evidence_text".
+    - If a skill is mentioned in a project but not used in a professional capacity, set match_type to "semantic" or "inferred".
+    - If it's a core professional skill, use "exact".
+
+    Return a JSON array of objects:
+    [
+      {{
+        "skill": "(The exact skill name from the requirements)",
+        "reasoning": "(Step-by-step reasoning. Why does this match or not match? Mention specific company or project.)",
+        "matched": true/false,
+        "similarity": 0.0 to 1.0 (Strict evaluation),
+        "match_type": "exact", "semantic", "inferred", or "no_match",
+        "evidence_type": "experience", "projects", "skills", "summary", or "",
+        "evidence_text": "(The exact quote or specific context from the resume proving the match. EMPTY if matched is false)"
+      }}
+    ]
+    """
+    
+    # Prepare context for prompt
+    req_text = json.dumps([{"skill": req["skill"], "tier": req["tier"]} for req in requirements], indent=2)
+    resume_summary = resume.get("summary", "")
+    exp_highlights = " | ".join([f"{e.get('title')} at {e.get('company')}" for e in resume.get("experience", [])[:3]])
+    
+    full_prompt = prompt.format(
+        job_domain=_job_domain(job),
+        job_role=job.get("role", "Target Role"),
+        req_text=req_text,
+        resume_summary=resume_summary,
+        resume_experience_highlights=exp_highlights
+    )
+    
+    # We also provide the raw resume JSON for full context
+    full_prompt += f"\n\nFULL RESUME JSON:\n{json.dumps(resume, indent=2)}"
+    
+    try:
+        response_text = safe_generate_content(full_prompt)
+        evaluations = json.loads(clean_json(response_text))
+        
+        scored = []
+        eval_map = {item.get("skill", "").lower(): item for item in evaluations if isinstance(item, dict)}
+        
+        for req in requirements:
+            skill = req["skill"]
+            canonical = _canonicalize_skill(skill)
+            eval_data = eval_map.get(skill.lower()) or {}
+            
+            llm_similarity = round(float(eval_data.get("similarity", 0.0) or 0.0), 3)
+            semantic_sim = semantic_verifications.get(skill.lower(), 0.0)
+            
+            # Hybrid Confidence: Average of LLM and Semantic, but biased towards LLM if evidence is provided
+            # If LLM says "exact match" but semantic similarity is very low (< 0.3), we penalize it
+            is_matched = bool(eval_data.get("matched", False))
+            
+            if is_matched and semantic_sim < 0.25 and eval_data.get("match_type") == "exact":
+                # High chance of hallucination or misalignment
+                is_matched = False
+                llm_similarity *= 0.5
+            
+            # Final similarity is a weighted average
+            final_similarity = round((llm_similarity * 0.7) + (semantic_sim * 0.3), 3)
+            
+            # Stricter matched threshold
+            matched = is_matched and final_similarity >= 0.55
+            
+            scored.append({
+                "skill": skill,
+                "canonical_skill": canonical,
+                "tier": req["tier"],
+                "importance": req.get("importance", "core"),
+                "weight": req["weight"],
+                "similarity": final_similarity,
+                "llm_similarity": llm_similarity,
+                "semantic_similarity": semantic_sim,
+                "matched": matched,
+                "match_type": eval_data.get("match_type", "no_match") if matched else "no_match",
+                "evidence_type": eval_data.get("evidence_type", "") if matched else "",
+                "evidence_text": eval_data.get("evidence_text", "") if matched else "",
+                "confidence": final_similarity if matched else 0.0,
+                "reasoning": eval_data.get("reasoning", "No evidence found.")
+            })
+        return scored
+    except Exception as e:
+        print(f"Hybrid scoring failed: {e}. Falling back to basic match.")
+        inventory = _collect_candidate_skill_inventory(resume)
+        scored = []
+        for req in requirements:
+            canonical = _canonicalize_skill(req["skill"])
+            matched_item = inventory.get(canonical)
+            scored.append({
+                "skill": req["skill"],
+                "canonical_skill": canonical,
+                "tier": req["tier"],
+                "importance": req.get("importance", "core"),
+                "weight": req["weight"],
+                "similarity": 1.0 if matched_item else 0.0,
+                "matched": bool(matched_item),
+                "match_type": "exact" if matched_item else "no_match",
+                "evidence_type": matched_item["source"] if matched_item else "",
+                "evidence_text": matched_item["label"] if matched_item else "",
+                "confidence": 1.0 if matched_item else 0.0
+            })
+        return scored
 
 
 def _experience_snapshot(resume: dict, requirements: list[dict]) -> dict:
@@ -1205,8 +1254,8 @@ def _build_ranking_explanation(scored: list[dict], summary: dict, confidence: di
     }
 
 
-def _build_summary(scored: list[dict], required_years: int, experience_snapshot: dict, project_relevance: float) -> dict:
-    """Build weighted summary with critical-skill penalties and experience confidence."""
+def _build_summary(scored: list[dict], required_years: int, experience_snapshot: dict, project_relevance: float, job: dict) -> dict:
+    """Build weighted summary with critical-skill penalties, role alignment, and experience confidence."""
     required = [item for item in scored if item["tier"] == "required"]
     preferred = [item for item in scored if item["tier"] == "preferred"]
     matched = [item for item in scored if item["matched"]]
@@ -1225,7 +1274,7 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
             weight = float(item.get("weight", 1.0) or 1.0)
             if not item.get("matched"):
                 continue
-            multiplier = 1.0 if item.get("match_type") == "exact" else 0.84 if item.get("match_type") == "semantic" else 0.68
+            multiplier = 1.0 if item.get("match_type") == "exact" else 0.82 if item.get("match_type") == "semantic" else 0.65
             matched_weight += weight * multiplier
         return round((matched_weight / max(total_weight, 1e-6)) * 100, 1)
 
@@ -1235,37 +1284,59 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
     critical_match = weighted_match(critical_required, empty_default=required_match)
     missing_critical = [item for item in critical_required if not item.get("matched")]
 
+    # Experience Score with steeper penalty for major gaps
     if required_years <= 0:
         experience_score = 100.0
     elif candidate_years >= required_years:
         experience_score = 100.0
     else:
-        experience_score = round((candidate_years / max(required_years, 1)) * 100, 1)
+        # If gap is more than 50% of required, penalize more
+        ratio = candidate_years / max(required_years, 1)
+        if ratio < 0.5:
+            experience_score = round(ratio * 70, 1) # Extra penalty
+        else:
+            experience_score = round(ratio * 100, 1)
 
     exact_required_rate = round((len([item for item in required if item.get("match_type") == "exact"]) / len(required)) * 100, 1) if required else 55.0
     experience_confidence_score = float(experience_snapshot.get("experience_confidence_score", 0) or 0)
     recency_score = float(experience_snapshot.get("recency_score", 0) or 0)
 
+    # NEW: Role Alignment Check
+    job_role = (job.get("role") or "").lower()
+    job_domain = _job_domain(job)
+    
+    # We'll calculate alignment based on LLM reasoning if available or simple keyword match
+    alignment_bonus = 0.0
+    alignment_penalty = 0.0
+    
+    # If the candidate has NO exact matches in required skills AND the domain is different, heavy penalty
+    if exact_required_rate < 10 and job_domain != "backend" and not any(item["matched"] for item in required):
+        alignment_penalty = 15.0
+
     overall_score = round(
-        (critical_match * 0.4)
-        + (required_match * 0.25)
-        + (preferred_match * 0.08)
-        + (experience_score * 0.17)
+        (critical_match * 0.42)
+        + (required_match * 0.23)
+        + (preferred_match * 0.05)
+        + (experience_score * 0.18)
         + (exact_required_rate * 0.07)
-        + (recency_score * 0.03),
+        + (recency_score * 0.05),
         1,
     )
 
     # Calibrate scores when JD parsing produced sparse requirement coverage.
-    # Without this, jobs with 0-1 extracted skills can yield inflated 90+ scores.
     coverage_signal = min(1.0, (len(required) + (len(preferred) * 0.5)) / 4.0)
-    overall_score = round(overall_score * (0.75 + (0.25 * coverage_signal)), 1)
+    overall_score = round(overall_score * (0.72 + (0.28 * coverage_signal)), 1)
 
+    # Penalties
     if missing_critical:
-        overall_score = round(max(0.0, overall_score - min(32, 18 + (len(missing_critical) - 1) * 7)), 1)
+        overall_score = round(max(0.0, overall_score - min(35, 20 + (len(missing_critical) - 1) * 8)), 1)
+    
+    if alignment_penalty > 0:
+        overall_score = round(max(0.0, overall_score - alignment_penalty), 1)
+
     minor_missing = [item for item in missing if item.get("importance") == "supporting"]
     if minor_missing:
-        overall_score = round(max(0.0, overall_score - min(8, len(minor_missing) * 1.5)), 1)
+        overall_score = round(max(0.0, overall_score - min(10, len(minor_missing) * 2.0)), 1)
 
     score_band = _verdict_for_score(overall_score)
     top_strengths = [item["skill"] for item in matched][:3]
@@ -1273,20 +1344,16 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
     why_fit = _build_why_fit(scored, required_years, candidate_years)
     gaps = [item["skill"] for item in missing if item["tier"] == "required"] or ["No required skill gaps."]
 
-    # Count exact vs semantic matches for ranking boost
-    exact_matches = len([item for item in matched if item.get("match_type") == "exact"])
-    semantic_matches = len([item for item in matched if item.get("match_type") == "semantic"])
-
     # ATS score: based on exact keyword match rate vs JD skills
     ats_score = round(
-        (exact_required_rate * 0.6) + (required_match * 0.3) + (preferred_match * 0.1), 1
+        (exact_required_rate * 0.65) + (required_match * 0.25) + (preferred_match * 0.1), 1
     )
 
     # Interview readiness: based on project depth + experience confidence + matched skills
     project_signal_count = len([item for item in scored if item.get("evidence_type") in {"projects", "project"}])
     interview_readiness = round(
-        (required_match * 0.45)
-        + (min(project_signal_count / 3, 1.0) * 25)
+        (required_match * 0.40)
+        + (min(project_signal_count / 3, 1.0) * 30)
         + (experience_confidence_score * 0.2)
         + (recency_score * 0.1),
         1,
@@ -1295,8 +1362,8 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
     return {
         "overall_score": overall_score,
         "rank_score": overall_score,
-        "exact_match_count": exact_matches,
-        "semantic_match_count": semantic_matches,
+        "exact_match_count": len([item for item in matched if item.get("match_type") == "exact"]),
+        "semantic_match_count": len([item for item in matched if item.get("match_type") == "semantic"]),
         "score_band": score_band,
         "required_match_rate": round(matched_required / len(required), 2) if required else 1.0,
         "preferred_match_rate": round(matched_preferred / len(preferred), 2) if preferred else 1.0,
@@ -1306,7 +1373,7 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
         "experience_score": experience_score,
         "skills_match_percent": required_match,
         "critical_fit_percent": critical_match,
-        "role_alignment": required_match,
+        "role_alignment": 100.0 - alignment_penalty,
         "experience_alignment": experience_score,
         "experience_years_estimate": candidate_years,
         "experience_confidence_score": experience_confidence_score,
@@ -1316,12 +1383,12 @@ def _build_summary(scored: list[dict], required_years: int, experience_snapshot:
         "ats_score": min(100.0, ats_score),
         "interview_readiness_score": min(100.0, interview_readiness),
         "scoring_breakdown": {
-            "critical_skill_match": {"weight": 40, "score": critical_match},
-            "required_skill_match": {"weight": 25, "score": required_match},
-            "preferred_skill_match": {"weight": 8, "score": preferred_match},
-            "experience_score": {"weight": 17, "score": experience_score},
+            "critical_skill_match": {"weight": 42, "score": critical_match},
+            "required_skill_match": {"weight": 23, "score": required_match},
+            "preferred_skill_match": {"weight": 5, "score": preferred_match},
+            "experience_score": {"weight": 18, "score": experience_score},
             "exact_required_rate": {"weight": 7, "score": exact_required_rate},
-            "recency_score": {"weight": 3, "score": recency_score},
+            "recency_score": {"weight": 5, "score": recency_score},
             "projects_relevance": {"weight": 0, "score": round(project_relevance, 1)},
         },
         "matched_skills": len(matched),
@@ -1369,7 +1436,7 @@ def match_resume_to_job(resume: dict, job_text: str) -> dict:
     required_years = int(job.get("min_years_experience", 0) or 0)
     experience_snapshot = _experience_snapshot(resume, requirements)
     project_relevance = _score_project_relevance_exact(resume, requirements)
-    summary = _build_summary(scored, required_years, experience_snapshot, project_relevance)
+    summary = _build_summary(scored, required_years, experience_snapshot, project_relevance, job)
     summary["required_years"] = required_years
     summary["reliability_metrics"] = {
         "precision_at_1": round((summary.get("critical_fit_percent", 0) * 0.6) + (summary.get("exact_required_rate", 0) * 0.4), 1),

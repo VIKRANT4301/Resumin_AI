@@ -1751,7 +1751,12 @@ Return ONLY valid JSON matching this exact schema:
     "interview_narrative": ["(specific STAR story to prepare based on projects)"],
     "salary_upside_opportunity": "(how much salary increase is possible with fixes)"
   }},
-  "strength_signals": ["(specific signal of strength from resume)"],
+  "strength_signals": [
+    {{
+      "signal": "(specific signal of strength from resume)",
+      "why_it_matters": "(why this matters to recruiters)"
+    }}
+  ],
   "risk_signals": [
     {{
       "title": "(risk title)",

@@ -743,7 +743,10 @@ function normalizeEvidenceCards(feedback, fallbackEvidence) {
 function normalizeStrengthSignals(feedback, strengths) {
   const structured = feedback?.strength_signals || [];
   if (structured.length) {
-    return structured.map((item) => `${item.signal}: ${item.why_it_matters}`);
+    return structured.map((item) => {
+      if (typeof item === "string") return item;
+      return `${item.signal}: ${item.why_it_matters}`;
+    });
   }
   return strengths;
 }
