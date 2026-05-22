@@ -1,4 +1,4 @@
-# Resumin_AI 🚀
+# Resumin_AI 
 
 An AI-powered resume analysis and optimization platform that helps candidates improve their resumes based on job descriptions using intelligent matching, ATS scoring, and AI-generated suggestions.
 
